@@ -1,0 +1,10 @@
+node_modules
+.next
+out
+.git
+.env
+dev.db
+dev.db-journal
+Dockerfile
+.dockerignore
+README.md
