@@ -16,8 +16,9 @@ export const authOptions: NextAuthOptions = {
           throw new Error("E-mail e senha são obrigatórios.");
         }
 
+        const emailLower = credentials.email.toLowerCase();
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email }
+          where: { email: emailLower }
         });
 
         if (!user) {
@@ -35,6 +36,7 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           email: user.email,
           isPremium: user.isPremium,
+          role: user.role,
         };
       }
     })
@@ -44,6 +46,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.isPremium = (user as any).isPremium;
+        token.role = (user as any).role;
       }
       
       // Allow dynamic token updates (e.g. after subscribing to Premium)
@@ -58,6 +61,7 @@ export const authOptions: NextAuthOptions = {
       if (token && session.user) {
         (session.user as any).id = token.id;
         (session.user as any).isPremium = token.isPremium;
+        (session.user as any).role = token.role;
       }
       return session;
     }

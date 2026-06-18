@@ -13,9 +13,11 @@ export async function POST(req: Request) {
       );
     }
 
+    const emailLower = email.toLowerCase();
+
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
-      where: { email },
+      where: { email: emailLower },
     });
 
     if (existingUser) {
@@ -33,7 +35,7 @@ export async function POST(req: Request) {
       const user = await tx.user.create({
         data: {
           name,
-          email,
+          email: emailLower,
           password: hashedPassword,
         },
       });

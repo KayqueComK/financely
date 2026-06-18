@@ -16,6 +16,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Financely - Gestão Financeira Inteligente",
   description: "Gerencie suas finanças de forma simples, elegante e inteligente. Controle receitas, despesas, gráficos interativos e cotação em tempo real.",
+  icons: {
+    icon: "/icon.png",
+  },
 };
 
 export default function RootLayout({

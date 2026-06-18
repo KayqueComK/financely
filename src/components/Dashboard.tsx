@@ -2,30 +2,39 @@
 
 import React, { useState, useEffect } from "react";
 import { signOut, useSession } from "next-auth/react";
-import { 
-  Plus, 
-  Trash2, 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
-  LogOut, 
-  Crown, 
-  Coins, 
-  Sparkles, 
-  Calendar, 
-  Tag, 
+import {
+  Plus,
+  Trash2,
+  LogOut,
+  Calendar,
+  Tag,
   ListFilter,
   Loader2,
   PieChart as PieIcon,
-  Activity
+  Code2,
+  Cpu,
+  Server,
+  Zap,
+  GitMerge,
+  Database,
+  Terminal,
+  ArrowUpRight,
+  ArrowDownLeft,
+  ChevronLeft,
+  Menu,
+  Users,
+  Shield,
+  FileText,
+  Pencil
 } from "lucide-react";
-import { 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+import { jsPDF } from "jspdf";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
   PieChart,
   Cell,
@@ -57,6 +66,22 @@ export default function Dashboard() {
   const [eurRate, setEurRate] = useState<number>(0);
   const [selectedCurrency, setSelectedCurrency] = useState<"BRL" | "USD" | "EUR">("BRL");
 
+
+  const [sidebarHidden, setSidebarHidden] = useState(false);
+  const [activeTab, setActiveTab] = useState<"dashboard" | "admin">("dashboard");
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportType, setReportType] = useState<"summary" | "detailed">("detailed");
+  const [users, setUsers] = useState<any[]>([]);
+  const [editingUser, setEditingUser] = useState<any | null>(null);
+  const [showEditUserModal, setShowEditUserModal] = useState(false);
+  const [searchUserQuery, setSearchUserQuery] = useState("");
+  
+  // Edit user fields
+  const [editUserName, setEditUserName] = useState("");
+  const [editUserEmail, setEditUserEmail] = useState("");
+  const [editUserRole, setEditUserRole] = useState("USER");
+  const [editUserPassword, setEditUserPassword] = useState("");
+
   // Form states
   const [showAddTx, setShowAddTx] = useState(false);
   const [txDesc, setTxDesc] = useState("");
@@ -64,6 +89,15 @@ export default function Dashboard() {
   const [txType, setTxType] = useState("EXPENSE");
   const [txCategory, setTxCategory] = useState("");
   const [txDate, setTxDate] = useState(new Date().toISOString().split("T")[0]);
+
+  // Edit transaction states
+  const [showEditTx, setShowEditTx] = useState(false);
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+  const [editTxDesc, setEditTxDesc] = useState("");
+  const [editTxAmount, setEditTxAmount] = useState("");
+  const [editTxType, setEditTxType] = useState("EXPENSE");
+  const [editTxCategory, setEditTxCategory] = useState("");
+  const [editTxDate, setEditTxDate] = useState("");
 
   const [showAddCat, setShowAddCat] = useState(false);
   const [catName, setCatName] = useState("");
@@ -77,6 +111,236 @@ export default function Dashboard() {
     fetchData();
     fetchRates();
   }, []);
+
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch("/api/admin/users");
+      if (res.ok) {
+        const data = await res.json();
+        setUsers(data);
+      }
+    } catch (e) {
+      console.error("Erro ao buscar usuários", e);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "admin") {
+      fetchUsers();
+    }
+  }, [activeTab]);
+
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/admin/users/${editingUser.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editUserName,
+          email: editUserEmail,
+          role: editUserRole,
+          password: editUserPassword
+        })
+      });
+      if (res.ok) {
+        fetchUsers();
+        setShowEditUserModal(false);
+        setEditingUser(null);
+        setEditUserPassword("");
+      } else {
+        const data = await res.json();
+        alert(data.message || "Erro ao atualizar usuário.");
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async (id: string) => {
+    if (!confirm("Tem certeza que deseja excluir esta conta de usuário permanentemente? Todos os seus dados serão apagados.")) return;
+    try {
+      const res = await fetch(`/api/admin/users/${id}`, {
+        method: "DELETE"
+      });
+      if (res.ok) {
+        setUsers(users.filter(u => u.id !== id));
+      } else {
+        const data = await res.json();
+        alert(data.message || "Erro ao excluir usuário.");
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleGeneratePDF = () => {
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(22);
+    doc.setTextColor(15, 23, 42); // slate-900
+    doc.text("Financely", 14, 20);
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139); // slate-500
+    doc.text("Sistema SaaS de Gestão Financeira", 14, 25);
+    doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 14, 30);
+    
+    // Line separator
+    doc.setDrawColor(226, 232, 240); // slate-200
+    doc.line(14, 35, 196, 35);
+    
+    // Document Title
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.setTextColor(15, 23, 42);
+    const title = reportType === "detailed" ? "Relatório Financeiro Detalhado" : "Relatório Financeiro Simplificado (Resumo)";
+    doc.text(title, 14, 45);
+    
+    // Metrics section
+    doc.setFontSize(12);
+    doc.text("Resumo Geral:", 14, 55);
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text(`Total de Receitas: ${formatValue(totalIncome)}`, 14, 63);
+    doc.text(`Total de Despesas: ${formatValue(totalExpense)}`, 14, 69);
+    
+    const balanceColor = balance >= 0 ? [16, 185, 129] : [239, 68, 68]; // emerald vs rose
+    doc.setFont("helvetica", "bold");
+    doc.text("Saldo Líquido: ", 14, 75);
+    doc.setTextColor(balanceColor[0], balanceColor[1], balanceColor[2]);
+    doc.text(formatValue(balance), 42, 75);
+    doc.setTextColor(15, 23, 42);
+    
+    doc.line(14, 82, 196, 82);
+
+    if (reportType === "detailed") {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("Lista Detalhada de Lançamentos:", 14, 92);
+      
+      doc.setFontSize(9);
+      // Table Header
+      let y = 100;
+      doc.setFillColor(248, 250, 252); // slate-50
+      doc.rect(14, y, 182, 7, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(71, 85, 105); // slate-600
+      doc.text("Data", 16, y + 5);
+      doc.text("Descrição", 38, y + 5);
+      doc.text("Categoria", 95, y + 5);
+      doc.text("Tipo", 135, y + 5);
+      doc.text("Valor", 175, y + 5);
+      
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(15, 23, 42);
+      y += 7;
+
+      transactions.forEach((tx) => {
+        if (y > 270) {
+          doc.addPage();
+          y = 20;
+          // Sub-header on new page
+          doc.setFillColor(248, 250, 252);
+          doc.rect(14, y, 182, 7, "F");
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(71, 85, 105);
+          doc.text("Data", 16, y + 5);
+          doc.text("Descrição", 38, y + 5);
+          doc.text("Categoria", 95, y + 5);
+          doc.text("Tipo", 135, y + 5);
+          doc.text("Valor", 175, y + 5);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(15, 23, 42);
+          y += 7;
+        }
+
+        // Draw transaction row
+        const dateStr = new Date(tx.date).toLocaleDateString("pt-BR");
+        const descStr = tx.description.length > 30 ? tx.description.substring(0, 28) + "..." : tx.description;
+        const catStr = tx.category?.name || "Sem Categoria";
+        const typeStr = tx.type === "INCOME" ? "Receita" : "Despesa";
+        const valStr = (tx.type === "INCOME" ? "+ " : "- ") + formatValue(tx.amount);
+
+        doc.text(dateStr, 16, y + 5);
+        doc.text(descStr, 38, y + 5);
+        doc.text(catStr, 95, y + 5);
+        
+        if (tx.type === "INCOME") {
+          doc.setTextColor(16, 185, 129); // emerald
+        } else {
+          doc.setTextColor(239, 68, 68); // rose
+        }
+        doc.text(typeStr, 135, y + 5);
+        doc.text(valStr, 175, y + 5);
+        
+        doc.setTextColor(15, 23, 42); // reset
+
+        // Draw light bottom border
+        doc.setDrawColor(241, 245, 249);
+        doc.line(14, y + 7, 196, y + 7);
+        y += 7;
+      });
+    } else {
+      // Summary mode: show categories table with totals
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("Resumo de Gastos por Categoria:", 14, 92);
+      
+      let y = 100;
+      doc.setFillColor(248, 250, 252);
+      doc.rect(14, y, 182, 7, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(71, 85, 105);
+      doc.text("Categoria", 16, y + 5);
+      doc.text("Lançamentos", 100, y + 5);
+      doc.text("Total Gasto", 150, y + 5);
+      
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(15, 23, 42);
+      y += 7;
+
+      // Calculate totals per category for expenses
+      const catSummary = transactions
+        .filter(t => t.type === "EXPENSE")
+        .reduce((acc: { [key: string]: { count: number; total: number } }, t) => {
+          const name = t.category?.name || "Sem Categoria";
+          if (!acc[name]) acc[name] = { count: 0, total: 0 };
+          acc[name].count += 1;
+          acc[name].total += t.amount;
+          return acc;
+        }, {});
+
+      const summaryRows = Object.entries(catSummary);
+
+      if (summaryRows.length === 0) {
+        doc.text("Nenhuma despesa registrada para detalhar por categoria.", 16, y + 5);
+      } else {
+        summaryRows.forEach(([name, data]) => {
+          doc.text(name, 16, y + 5);
+          doc.text(data.count.toString(), 100, y + 5);
+          doc.setTextColor(239, 68, 68); // Red color for expense totals
+          doc.text(formatValue(data.total), 150, y + 5);
+          doc.setTextColor(15, 23, 42); // reset
+
+          doc.setDrawColor(241, 245, 249);
+          doc.line(14, y + 7, 196, y + 7);
+          y += 7;
+        });
+      }
+    }
+    
+    doc.save(`relatorio-financeiro-${reportType}-${new Date().toISOString().split("T")[0]}.pdf`);
+    setShowReportModal(false);
+  };
 
   const fetchData = async () => {
     try {
@@ -128,6 +392,38 @@ export default function Dashboard() {
         setTxDesc("");
         setTxAmount("");
         setShowAddTx(false);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleUpdateTransaction = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTx) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/transactions/${editingTx.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          description: editTxDesc,
+          amount: parseFloat(editTxAmount),
+          type: editTxType,
+          date: editTxDate,
+          categoryId: editTxCategory
+        })
+      });
+      if (res.ok) {
+        const updatedTx = await res.json();
+        setTransactions(transactions.map(t => t.id === editingTx.id ? updatedTx : t));
+        setShowEditTx(false);
+        setEditingTx(null);
+      } else {
+        const data = await res.json();
+        alert(data.message || "Erro ao atualizar transação.");
       }
     } catch (e) {
       console.error(e);
@@ -245,340 +541,478 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center min-h-screen bg-slate-950">
-        <Loader2 className="w-10 h-10 animate-spin text-indigo-500 mb-4" />
-        <p className="text-slate-400 text-sm">Carregando seus dados financeiros...</p>
+      <div className="flex-1 flex flex-col items-center justify-center min-h-screen bg-slate-50">
+        <Loader2 className="w-10 h-10 animate-spin text-sky-600 mb-4" />
+        <p className="text-slate-500 text-sm font-medium">Carregando dados do sistema ERP...</p>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row min-h-screen bg-slate-950">
-      
-      {/* Sidebar Navigation */}
-      <aside className="w-full md:w-64 glass border-r border-slate-800 p-6 flex flex-col justify-between">
-        <div>
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
-              <Coins className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold tracking-tight">Financely</h2>
-              <span className="text-[10px] text-indigo-400 font-semibold uppercase tracking-wider">Dashboard SaaS</span>
-            </div>
-          </div>
+    <div className="flex-1 flex flex-row min-h-screen bg-slate-50 text-slate-900">
 
-          <div className="mb-6 p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-            <p className="text-xs text-slate-400">Bem-vindo,</p>
-            <h3 className="font-semibold text-slate-200">{user?.name || "Usuário"}</h3>
-            {user?.isPremium ? (
-              <span className="inline-flex items-center gap-1 mt-2 text-[10px] bg-amber-500/10 border border-amber-500/20 text-amber-400 font-bold px-2 py-0.5 rounded-full">
-                <Crown className="w-3 h-3" /> Premium
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 mt-2 text-[10px] bg-slate-800 border border-slate-700 text-slate-400 font-medium px-2 py-0.5 rounded-full">
-                Membro Free
-              </span>
-            )}
-          </div>
-
-          <nav className="space-y-2">
-            <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-indigo-600/15 border border-indigo-500/20 text-indigo-400 font-medium text-sm transition">
-              <Activity className="w-4 h-4" /> Visão Geral
-            </button>
-            
-            {!user?.isPremium && (
-              <button 
-                onClick={handleSimulatePremium}
-                disabled={actionLoading}
-                className="w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-400 font-medium text-sm transition cursor-pointer"
+      {/* Sidebar Navigation - Navy Escura (Padrão ERP) */}
+      <aside className={`h-screen sticky top-0 bg-slate-900 border-r border-slate-800 text-slate-200 shrink-0 transition-[width,opacity] duration-300 ease-in-out ${
+        sidebarHidden ? "w-0 opacity-0 border-r-0 pointer-events-none" : "w-64 opacity-100"
+      } overflow-hidden`}>
+        <div className="w-64 h-full p-6 flex flex-col justify-between shrink-0">
+          <div>
+            <div className="flex items-center justify-between gap-3 mb-8">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-sky-400">
+                  <Code2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold tracking-tight text-white">Financely</h2>
+                  <span className="text-[10px] text-sky-400 font-semibold uppercase tracking-wider">Saas Gestão Financeira</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setSidebarHidden(true)}
+                className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
+                title="Ocultar Barra Lateral"
               >
-                <span className="flex items-center gap-3">
-                  <Sparkles className="w-4 h-4" /> Obter Premium
-                </span>
-                <Crown className="w-3 h-3 text-amber-400" />
+                <ChevronLeft className="w-4 h-4" />
               </button>
-            )}
-          </nav>
-        </div>
+            </div>
 
-        <button 
-          onClick={() => signOut()}
-          className="mt-8 flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 font-medium text-sm transition text-left cursor-pointer"
-        >
-          <LogOut className="w-4 h-4" /> Sair da conta
-        </button>
+            <div className="mb-6 p-4 rounded-xl bg-slate-950/40 border border-slate-800">
+              <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Usuário Logado</p>
+              <h3 className="font-semibold text-white mt-0.5">{user?.name || "Usuário"}</h3>
+              <span className={`inline-flex items-center gap-1 mt-2 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                user?.role === "ADMIN" 
+                  ? "bg-amber-500/10 border border-amber-500/20 text-amber-400" 
+                  : "bg-sky-500/10 border border-sky-500/20 text-sky-400"
+              }`}>
+                {user?.role === "ADMIN" ? "Administrador" : "Acesso Total"}
+              </span>
+            </div>
+
+            <nav className="space-y-2">
+              <button
+                onClick={() => setActiveTab("dashboard")}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium text-sm transition text-left cursor-pointer ${
+                  activeTab === "dashboard"
+                    ? "bg-sky-600/15 border border-sky-500/20 text-sky-400"
+                    : "hover:bg-slate-800 text-slate-400 hover:text-white"
+                }`}
+              >
+                <Terminal className="w-4 h-4" /> Visão Geral
+              </button>
+              {user?.role === "ADMIN" && (
+                <button
+                  onClick={() => setActiveTab("admin")}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium text-sm transition text-left cursor-pointer ${
+                    activeTab === "admin"
+                      ? "bg-sky-600/15 border border-sky-500/20 text-sky-400"
+                      : "hover:bg-slate-800 text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <Users className="w-4 h-4" /> Painel Admin
+                </button>
+              )}
+              <button
+                onClick={() => setShowReportModal(true)}
+                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium text-sm transition text-left cursor-pointer hover:bg-slate-800 text-slate-400 hover:text-white"
+              >
+                <FileText className="w-4 h-4" /> Gerar Relatório
+              </button>
+            </nav>
+          </div>
+
+          <button
+            onClick={() => signOut()}
+            className="mt-8 flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 font-medium text-sm transition text-left cursor-pointer"
+          >
+            <LogOut className="w-4 h-4" /> Sair do Sistema
+          </button>
+        </div>
       </aside>
 
-      {/* Main Content Area */}
-      <main className="flex-1 p-6 md:p-8 overflow-y-auto space-y-6">
-        
+      {/* Main Content Area - Light Mode */}
+      <main className="flex-1 p-6 md:p-8 overflow-y-auto space-y-6 bg-slate-50">
+
         {/* Top Header Controls */}
-        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-900 pb-5">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Visão Geral</h1>
-            <p className="text-slate-400 text-sm">Organize suas contas e controle a cotação de moedas.</p>
-          </div>
-          
+        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200 pb-5">
           <div className="flex items-center gap-3">
-            {/* Currency Selector (Stripe/Currency Feature Premium Highlight) */}
-            <div className="flex bg-slate-900/80 p-1 border border-slate-800 rounded-xl">
-              {(["BRL", "USD", "EUR"] as const).map(curr => (
-                <button
-                  key={curr}
-                  onClick={() => {
-                    if (curr !== "BRL" && !user?.isPremium) {
-                      alert("A conversão de moedas (USD/EUR) é um recurso exclusivo Premium! Assine para desbloquear.");
-                      return;
-                    }
-                    setSelectedCurrency(curr);
-                  }}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold uppercase transition cursor-pointer ${
-                    selectedCurrency === curr 
-                      ? "bg-indigo-600 text-white" 
-                      : "text-slate-400 hover:text-slate-200"
-                  } ${curr !== "BRL" && !user?.isPremium ? "opacity-40" : ""}`}
-                >
-                  {curr}
-                </button>
-              ))}
-            </div>
-
-            <button
-              onClick={() => setShowAddTx(true)}
-              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm px-4 py-2.5 rounded-xl transition cursor-pointer"
-            >
-              <Plus className="w-4 h-4" /> Nova Transação
-            </button>
-          </div>
-        </header>
-
-        {/* Financial Cards Grid */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="glass p-6 rounded-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-2xl pointer-events-none" />
-            <div className="flex justify-between items-start mb-4">
-              <span className="text-slate-400 text-xs font-semibold uppercase tracking-wider">Saldo Total</span>
-              <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                <DollarSign className="w-4 h-4" />
-              </div>
-            </div>
-            <h2 className="text-3xl font-bold">{formatValue(balance)}</h2>
-            <p className="text-[10px] text-indigo-400 mt-2">Diferença de receitas vs despesas</p>
-          </div>
-
-          <div className="glass p-6 rounded-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none" />
-            <div className="flex justify-between items-start mb-4">
-              <span className="text-slate-400 text-xs font-semibold uppercase tracking-wider">Receitas</span>
-              <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                <TrendingUp className="w-4 h-4" />
-              </div>
-            </div>
-            <h2 className="text-3xl font-bold text-emerald-400">{formatValue(totalIncome)}</h2>
-            <p className="text-[10px] text-emerald-500 mt-2">Entradas financeiras registradas</p>
-          </div>
-
-          <div className="glass p-6 rounded-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/5 rounded-full blur-2xl pointer-events-none" />
-            <div className="flex justify-between items-start mb-4">
-              <span className="text-slate-400 text-xs font-semibold uppercase tracking-wider">Despesas</span>
-              <div className="p-2 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20">
-                <TrendingDown className="w-4 h-4" />
-              </div>
-            </div>
-            <h2 className="text-3xl font-bold text-rose-400">{formatValue(totalExpense)}</h2>
-            <p className="text-[10px] text-rose-500 mt-2">Saídas financeiras registradas</p>
-          </div>
-        </section>
-
-        {/* Live currency rates ticker */}
-        <section className="bg-slate-900/40 border border-slate-800/80 rounded-xl p-4 flex flex-wrap gap-6 items-center justify-between text-xs text-slate-400">
-          <div className="flex items-center gap-2">
-            <Coins className="w-4 h-4 text-indigo-400" />
-            <span className="font-semibold text-slate-300">Cotações em tempo real (AwesomeAPI):</span>
-          </div>
-          <div className="flex gap-4">
-            <div>Dólar Comercial: <span className="font-semibold text-emerald-400">R$ {usdRate.toFixed(2)}</span></div>
-            <div>Euro Comercial: <span className="font-semibold text-indigo-400">R$ {eurRate.toFixed(2)}</span></div>
-          </div>
-        </section>
-
-        {/* Charts & Graphs Visual Section */}
-        <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          {/* Main area graph */}
-          <div className="lg:col-span-2 glass p-6 rounded-2xl flex flex-col justify-between">
-            <div className="mb-4">
-              <h3 className="font-bold text-sm tracking-tight text-slate-200 uppercase mb-1">Evolução do Fluxo de Caixa</h3>
-              <p className="text-xs text-slate-400">Gráfico mostrando o impacto líquido das últimas transações.</p>
-            </div>
-            <div className="h-64 w-full">
-              {chartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorValor" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4}/>
-                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                    <XAxis dataKey="date" stroke="#94a3b8" fontSize={10} />
-                    <YAxis stroke="#94a3b8" fontSize={10} />
-                    <Tooltip 
-                      contentStyle={{ background: "#0f172a", border: "1px solid #334155", borderRadius: "8px" }}
-                      labelStyle={{ color: "#94a3b8" }}
-                    />
-                    <Area type="monotone" dataKey="valor" stroke="#6366f1" fillOpacity={1} fill="url(#colorValor)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex items-center justify-center text-xs text-slate-500">
-                  Sem transações suficientes para gerar o gráfico.
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Pie Chart */}
-          <div className="glass p-6 rounded-2xl flex flex-col justify-between">
-            <div className="mb-4">
-              <h3 className="font-bold text-sm tracking-tight text-slate-200 uppercase mb-1">Distribuição de Gastos</h3>
-              <p className="text-xs text-slate-400">Percentual de despesas por categoria de transação.</p>
-            </div>
-            <div className="h-64 w-full flex items-center justify-center relative">
-              {pieData.length > 0 ? (
-                <div className="w-full h-full relative flex items-center justify-center">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={pieData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={80}
-                        paddingAngle={5}
-                        dataKey="value"
-                      >
-                        {pieData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip 
-                        contentStyle={{ background: "#0f172a", border: "1px solid #334155", borderRadius: "8px" }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  {/* Legend inside absolute */}
-                  <div className="absolute flex flex-col items-center">
-                    <PieIcon className="w-5 h-5 text-indigo-400" />
-                    <span className="text-[10px] text-slate-400 mt-1 uppercase font-semibold">Gastos</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="h-full flex items-center justify-center text-xs text-slate-500">
-                  Adicione despesas para ver o gráfico.
-                </div>
-              )}
-            </div>
-          </div>
-
-        </section>
-
-        {/* Transactions Table / List */}
-        <section className="glass p-6 rounded-2xl">
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h3 className="font-bold text-base tracking-tight">Transações Recentes</h3>
-              <p className="text-xs text-slate-400">Lista completa das suas movimentações de entrada e saída.</p>
-            </div>
-            <div className="flex gap-2">
-              <button 
-                onClick={() => setShowAddCat(true)}
-                className="flex items-center gap-2 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 font-medium text-xs px-3 py-2 rounded-xl transition cursor-pointer"
+            {sidebarHidden && (
+              <button
+                onClick={() => setSidebarHidden(false)}
+                className="p-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition cursor-pointer shadow-sm mr-2 flex items-center justify-center"
+                title="Mostrar Barra Lateral"
               >
-                Nova Categoria
+                <Menu className="w-4 h-4" />
+              </button>
+            )}
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+                {activeTab === "dashboard" ? "Visão Geral" : "Painel Admin"}
+              </h1>
+              <p className="text-slate-500 text-sm">
+                {activeTab === "dashboard"
+                  ? "Painel corporativo de controle de despesas, receitas e fluxo."
+                  : "Gerenciamento de usuários cadastrados e controle de acesso."}
+              </p>
+            </div>
+          </div>
+
+          {activeTab === "dashboard" && (
+            <div className="flex items-center gap-3">
+              {/* Currency Selector */}
+              <div className="flex bg-slate-200 p-1 border border-slate-300 rounded-xl">
+                {(["BRL", "USD", "EUR"] as const).map(curr => (
+                  <button
+                    key={curr}
+                    onClick={() => {
+                      setSelectedCurrency(curr);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition cursor-pointer ${selectedCurrency === curr
+                        ? "bg-sky-600 text-white shadow-sm"
+                        : "text-slate-600 hover:text-slate-800"
+                      }`}
+                  >
+                    {curr}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={() => setShowAddTx(true)}
+                className="flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white font-semibold text-sm px-4 py-2.5 rounded-xl transition cursor-pointer shadow-sm shadow-sky-600/10"
+              >
+                <Plus className="w-4 h-4" /> Nova Transação
               </button>
             </div>
-          </div>
+          )}
+        </header>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-300">
-              <thead className="text-xs uppercase bg-slate-900/60 text-slate-400 border-b border-slate-800">
-                <tr>
-                  <th className="py-3 px-4 rounded-l-lg">Descrição</th>
-                  <th className="py-3 px-4">Categoria</th>
-                  <th className="py-3 px-4">Data</th>
-                  <th className="py-3 px-4">Tipo</th>
-                  <th className="py-3 px-4 text-right">Valor</th>
-                  <th className="py-3 px-4 text-center rounded-r-lg">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-900">
-                {transactions.length > 0 ? (
-                  transactions.map(tx => (
-                    <tr key={tx.id} className="hover:bg-slate-900/30 transition">
-                      <td className="py-4 px-4 font-semibold text-slate-200">{tx.description}</td>
-                      <td className="py-4 px-4">
-                        <span 
-                          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium"
-                          style={{ backgroundColor: `${tx.category.color}15`, color: tx.category.color }}
-                        >
-                          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: tx.category.color }} />
-                          {tx.category.name}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4 text-xs text-slate-400">
-                        {new Date(tx.date).toLocaleDateString("pt-BR")}
-                      </td>
-                      <td className="py-4 px-4 text-xs font-semibold">
-                        {tx.type === "INCOME" ? (
-                          <span className="text-emerald-400">Receita</span>
-                        ) : (
-                          <span className="text-rose-400">Despesa</span>
-                        )}
-                      </td>
-                      <td className={`py-4 px-4 text-right font-bold ${tx.type === "INCOME" ? "text-emerald-400" : "text-rose-400"}`}>
-                        {tx.type === "INCOME" ? "+" : "-"} {formatValue(tx.amount)}
-                      </td>
-                      <td className="py-4 px-4 text-center">
-                        <button
-                          onClick={() => handleDeleteTransaction(tx.id)}
-                          className="text-slate-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10 transition cursor-pointer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
+        {activeTab === "dashboard" ? (
+          <>
+            {/* Financial Cards Grid */}
+            <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="erp-card p-6 rounded-xl relative overflow-hidden">
+                <div className="flex justify-between items-start mb-4">
+                  <span className="text-slate-500 text-xs font-bold uppercase tracking-wider">Saldo Total</span>
+                  <div className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-600 border border-sky-500/20 flex items-center justify-center">
+                    <Cpu className="w-4 h-4" />
+                  </div>
+                </div>
+                <h2 className="text-3xl font-extrabold text-slate-900">{formatValue(balance)}</h2>
+                <p className="text-[10px] text-slate-500 mt-2">Diferença líquida do caixa consolidado</p>
+              </div>
+
+              <div className="erp-card p-6 rounded-xl relative overflow-hidden">
+                <div className="flex justify-between items-start mb-4">
+                  <span className="text-slate-500 text-xs font-bold uppercase tracking-wider">Receitas</span>
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center justify-center">
+                    <ArrowUpRight className="w-4 h-4" />
+                  </div>
+                </div>
+                <h2 className="text-3xl font-extrabold text-emerald-600">{formatValue(totalIncome)}</h2>
+                <p className="text-[10px] text-slate-500 mt-2">Faturamento e entradas industriais</p>
+              </div>
+
+              <div className="erp-card p-6 rounded-xl relative overflow-hidden">
+                <div className="flex justify-between items-start mb-4">
+                  <span className="text-slate-500 text-xs font-bold uppercase tracking-wider">Despesas</span>
+                  <div className="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-600 border border-rose-500/20 flex items-center justify-center">
+                    <Server className="w-4 h-4" />
+                  </div>
+                </div>
+                <h2 className="text-3xl font-extrabold text-rose-600">{formatValue(totalExpense)}</h2>
+                <p className="text-[10px] text-slate-500 mt-2">Custos operacionais e despesas gerais</p>
+              </div>
+            </section>
+
+            {/* Live currency rates ticker */}
+            <section className="bg-slate-100 border border-slate-200 rounded-xl p-4 flex flex-wrap gap-6 items-center justify-between text-xs text-slate-600">
+              <div className="flex items-center gap-2">
+                <Database className="w-4 h-4 text-sky-600" />
+                <span className="font-semibold text-slate-700">Painel Integrador Cambial (AwesomeAPI):</span>
+              </div>
+              <div className="flex gap-4">
+                <div>Câmbio Dólar: <span className="font-bold text-slate-900">R$ {usdRate.toFixed(2)}</span></div>
+                <div>Câmbio Euro: <span className="font-bold text-slate-900">R$ {eurRate.toFixed(2)}</span></div>
+              </div>
+            </section>
+
+            {/* Charts & Graphs Visual Section */}
+            <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+              {/* Main area graph */}
+              <div className="lg:col-span-2 erp-card p-6 rounded-xl flex flex-col justify-between">
+                <div className="mb-4">
+                  <h3 className="font-bold text-sm tracking-tight text-slate-800 uppercase mb-1">Evolução do Fluxo de Caixa</h3>
+                  <p className="text-xs text-slate-500">Apuração de saldo acumulado por período de lançamento.</p>
+                </div>
+                <div className="h-64 w-full">
+                  {chartData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="colorValor" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#0284c7" stopOpacity={0.25} />
+                            <stop offset="95%" stopColor="#0284c7" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                        <XAxis dataKey="date" stroke="#64748b" fontSize={10} />
+                        <YAxis stroke="#64748b" fontSize={10} />
+                        <Tooltip
+                          contentStyle={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: "8px", color: "#334155" }}
+                          labelStyle={{ color: "#64748b", fontWeight: "bold" }}
+                        />
+                        <Area type="monotone" dataKey="valor" stroke="#0284c7" fillOpacity={1} fill="url(#colorValor)" strokeWidth={2} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-xs text-slate-400">
+                      Lançamentos insuficientes para plotar evolução.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Pie Chart */}
+              <div className="erp-card p-6 rounded-xl flex flex-col justify-between">
+                <div className="mb-4">
+                  <h3 className="font-bold text-sm tracking-tight text-slate-800 uppercase mb-1">Centro de Custos / Categorias</h3>
+                  <p className="text-xs text-slate-500">Distribuição percentual das despesas da organização.</p>
+                </div>
+                <div className="h-64 w-full flex items-center justify-center relative">
+                  {pieData.length > 0 ? (
+                    <div className="w-full h-full relative flex items-center justify-center">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={pieData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={80}
+                            paddingAngle={5}
+                            dataKey="value"
+                          >
+                            {pieData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            contentStyle={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: "8px" }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      {/* Legend inside absolute */}
+                      <div className="absolute flex flex-col items-center">
+                        <PieIcon className="w-5 h-5 text-sky-600" />
+                        <span className="text-[10px] text-slate-500 mt-1 uppercase font-bold">Custos</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-xs text-slate-400">
+                      Sem despesas lançadas no período.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+            </section>
+
+            {/* Transactions Table / List */}
+            <section className="erp-card p-6 rounded-xl">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h3 className="font-bold text-base tracking-tight text-slate-900">Extrato de Lançamentos Recentes</h3>
+                  <p className="text-xs text-slate-500">Transações consolidadas de entradas e saídas.</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowAddCat(true)}
+                    className="flex items-center gap-2 bg-white border border-slate-300 hover:border-slate-400 text-slate-700 font-bold text-xs px-3 py-2 rounded-xl transition cursor-pointer shadow-sm"
+                  >
+                    Nova Categoria
+                  </button>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm text-slate-700">
+                  <thead className="text-xs uppercase bg-slate-50 text-slate-500 border-b border-slate-200">
+                    <tr>
+                      <th className="py-3 px-4 rounded-l-lg">Descrição</th>
+                      <th className="py-3 px-4">Categoria</th>
+                      <th className="py-3 px-4">Data</th>
+                      <th className="py-3 px-4">Tipo</th>
+                      <th className="py-3 px-4 text-right">Valor</th>
+                      <th className="py-3 px-4 text-center rounded-r-lg">Ações</th>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={6} className="py-8 text-center text-slate-500 text-xs">
-                      Nenhuma transação encontrada. Comece adicionando uma acima!
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {transactions.length > 0 ? (
+                      transactions.map(tx => (
+                        <tr key={tx.id} className="hover:bg-slate-50 transition">
+                          <td className="py-4 px-4 font-semibold text-slate-800">{tx.description}</td>
+                          <td className="py-4 px-4">
+                            <span
+                              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold"
+                              style={{ backgroundColor: `${tx.category.color}15`, color: tx.category.color }}
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: tx.category.color }} />
+                              {tx.category.name}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4 text-xs text-slate-500">
+                            {new Date(tx.date).toLocaleDateString("pt-BR")}
+                          </td>
+                          <td className="py-4 px-4 text-xs font-bold">
+                            {tx.type === "INCOME" ? (
+                              <span className="text-emerald-600">Receita</span>
+                            ) : (
+                              <span className="text-rose-600">Despesa</span>
+                            )}
+                          </td>
+                          <td className={`py-4 px-4 text-right font-bold ${tx.type === "INCOME" ? "text-emerald-600" : "text-rose-600"}`}>
+                            {tx.type === "INCOME" ? "+" : "-"} {formatValue(tx.amount)}
+                          </td>
+                          <td className="py-4 px-4 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                onClick={() => {
+                                  setEditingTx(tx);
+                                  setEditTxDesc(tx.description);
+                                  setEditTxAmount(tx.amount.toString());
+                                  setEditTxType(tx.type);
+                                  setEditTxCategory(tx.category.id);
+                                  setEditTxDate(new Date(tx.date).toISOString().split("T")[0]);
+                                  setShowEditTx(true);
+                                }}
+                                className="text-slate-400 hover:text-sky-600 p-1.5 rounded-lg hover:bg-sky-500/10 transition cursor-pointer"
+                                title="Editar Transação"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteTransaction(tx.id)}
+                                className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-500/10 transition cursor-pointer"
+                                title="Excluir Transação"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-slate-400 text-xs">
+                          Nenhum lançamento no banco de dados. Adicione sua primeira transação!
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </>
+        ) : (
+          <section className="space-y-6 animate-in fade-in duration-200">
+            {/* Search and Summary Card */}
+            <div className="erp-card p-6 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex-1 max-w-md relative">
+                <input
+                  type="text"
+                  placeholder="Pesquisar por nome ou e-mail..."
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl erp-input text-sm text-slate-800"
+                  value={searchUserQuery}
+                  onChange={(e) => setSearchUserQuery(e.target.value)}
+                />
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-search"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                </span>
+              </div>
+              <div className="text-xs text-slate-500 font-medium">
+                Total de Usuários: <span className="text-slate-900 font-bold">{users.length}</span>
+              </div>
+            </div>
+
+            {/* Users Table */}
+            <div className="erp-card p-6 rounded-xl">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm text-slate-700 font-medium">
+                  <thead className="text-xs uppercase bg-slate-50 text-slate-500 border-b border-slate-200">
+                    <tr>
+                      <th className="py-3 px-4 rounded-l-lg">Nome</th>
+                      <th className="py-3 px-4">E-mail</th>
+                      <th className="py-3 px-4">Role / Nível</th>
+                      <th className="py-3 px-4 text-center rounded-r-lg">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {users.filter(u =>
+                      (u.name || "").toLowerCase().includes(searchUserQuery.toLowerCase()) ||
+                      (u.email || "").toLowerCase().includes(searchUserQuery.toLowerCase())
+                    ).map(u => (
+                      <tr key={u.id} className="hover:bg-slate-50 transition">
+                        <td className="py-4 px-4 font-semibold text-slate-800">{u.name || "Sem Nome"}</td>
+                        <td className="py-4 px-4 text-slate-600">{u.email}</td>
+                        <td className="py-4 px-4">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                            u.role === "ADMIN"
+                              ? "bg-amber-500/10 border border-amber-500/20 text-amber-600"
+                              : "bg-sky-500/10 border border-sky-500/20 text-sky-600"
+                          }`}>
+                            {u.role === "ADMIN" ? "Administrador" : "Usuário Comum"}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <div className="flex justify-center items-center gap-2">
+                            <button
+                              onClick={() => {
+                                setEditingUser(u);
+                                setEditUserName(u.name || "");
+                                setEditUserEmail(u.email);
+                                setEditUserRole(u.role || "USER");
+                                setEditUserPassword("");
+                                setShowEditUserModal(true);
+                              }}
+                              className="text-sky-600 hover:text-sky-700 font-semibold text-xs px-3 py-1.5 rounded-lg bg-sky-50 hover:bg-sky-100 transition cursor-pointer"
+                            >
+                              Editar
+                            </button>
+                            {user?.email !== u.email && (
+                              <button
+                                onClick={() => handleDeleteUser(u.id)}
+                                className="text-rose-600 hover:text-rose-700 font-semibold text-xs px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 transition cursor-pointer"
+                              >
+                                Excluir
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        )}
 
       </main>
 
       {/* Add Transaction Modal */}
       {showAddTx && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md glass p-6 rounded-2xl relative">
-            <h3 className="text-lg font-bold mb-4">Nova Transação</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md bg-white border border-slate-200 p-6 rounded-2xl relative shadow-xl text-slate-800 animate-in fade-in zoom-in-95 duration-150">
+            <h3 className="text-lg font-bold mb-4 text-slate-900">Nova Transação</h3>
             <form onSubmit={handleAddTransaction} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Descrição</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Descrição</label>
                 <input
                   type="text"
                   required
-                  placeholder="Ex: Supermercado"
-                  className="w-full px-4 py-3 rounded-xl glass-input text-sm"
+                  placeholder="Ex: Nota Fiscal de Compra 120"
+                  className="w-full px-4 py-3 rounded-xl erp-input text-sm"
                   value={txDesc}
                   onChange={(e) => setTxDesc(e.target.value)}
                 />
@@ -586,23 +1020,23 @@ export default function Dashboard() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Valor (BRL)</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Valor (BRL)</label>
                   <input
                     type="number"
                     step="0.01"
                     required
                     placeholder="0.00"
-                    className="w-full px-4 py-3 rounded-xl glass-input text-sm"
+                    className="w-full px-4 py-3 rounded-xl erp-input text-sm"
                     value={txAmount}
                     onChange={(e) => setTxAmount(e.target.value)}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Data</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Data</label>
                   <input
                     type="date"
                     required
-                    className="w-full px-4 py-3 rounded-xl glass-input text-sm"
+                    className="w-full px-4 py-3 rounded-xl erp-input text-sm"
                     value={txDate}
                     onChange={(e) => setTxDate(e.target.value)}
                   />
@@ -611,9 +1045,9 @@ export default function Dashboard() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Tipo</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Tipo</label>
                   <select
-                    className="w-full px-4 py-3 rounded-xl glass-input text-sm"
+                    className="w-full px-4 py-3 rounded-xl erp-input text-sm"
                     value={txType}
                     onChange={(e) => setTxType(e.target.value)}
                   >
@@ -622,9 +1056,9 @@ export default function Dashboard() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Categoria</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Categoria</label>
                   <select
-                    className="w-full px-4 py-3 rounded-xl glass-input text-sm"
+                    className="w-full px-4 py-3 rounded-xl erp-input text-sm"
                     value={txCategory}
                     onChange={(e) => setTxCategory(e.target.value)}
                   >
@@ -639,16 +1073,109 @@ export default function Dashboard() {
                 <button
                   type="button"
                   onClick={() => setShowAddTx(false)}
-                  className="flex-1 py-3 px-4 text-sm font-semibold rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 transition cursor-pointer"
+                  className="flex-1 py-3 px-4 text-sm font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 transition cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="flex-1 py-3 px-4 flex items-center justify-center gap-2 text-sm font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition cursor-pointer"
+                  className="flex-1 py-3 px-4 flex items-center justify-center gap-2 text-sm font-semibold rounded-xl bg-sky-600 hover:bg-sky-500 text-white transition cursor-pointer"
                 >
-                  {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Salvar"}
+                  {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Gravar Lançamento"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Transaction Modal */}
+      {showEditTx && editingTx && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md bg-white border border-slate-200 p-6 rounded-2xl relative shadow-xl text-slate-800 animate-in fade-in zoom-in-95 duration-150">
+            <h3 className="text-lg font-bold mb-4 text-slate-900">Editar Transação</h3>
+            <form onSubmit={handleUpdateTransaction} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Descrição</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Nota Fiscal de Compra 120"
+                  className="w-full px-4 py-3 rounded-xl erp-input text-sm"
+                  value={editTxDesc}
+                  onChange={(e) => setEditTxDesc(e.target.value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Valor (BRL)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    placeholder="0.00"
+                    className="w-full px-4 py-3 rounded-xl erp-input text-sm"
+                    value={editTxAmount}
+                    onChange={(e) => setEditTxAmount(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Data</label>
+                  <input
+                    type="date"
+                    required
+                    className="w-full px-4 py-3 rounded-xl erp-input text-sm"
+                    value={editTxDate}
+                    onChange={(e) => setEditTxDate(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Tipo</label>
+                  <select
+                    className="w-full px-4 py-3 rounded-xl erp-input text-sm font-semibold"
+                    value={editTxType}
+                    onChange={(e) => setEditTxType(e.target.value)}
+                  >
+                    <option value="EXPENSE">Despesa</option>
+                    <option value="INCOME">Receita</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Categoria</label>
+                  <select
+                    className="w-full px-4 py-3 rounded-xl erp-input text-sm font-semibold"
+                    value={editTxCategory}
+                    onChange={(e) => setEditTxCategory(e.target.value)}
+                  >
+                    {categories.map(cat => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditTx(false);
+                    setEditingTx(null);
+                  }}
+                  className="flex-1 py-3 px-4 text-sm font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="flex-1 py-3 px-4 flex items-center justify-center gap-2 text-sm font-semibold rounded-xl bg-sky-600 hover:bg-sky-500 text-white transition cursor-pointer"
+                >
+                  {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Salvar Alterações"}
                 </button>
               </div>
             </form>
@@ -658,24 +1185,24 @@ export default function Dashboard() {
 
       {/* Add Category Modal */}
       {showAddCat && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm glass p-6 rounded-2xl relative">
-            <h3 className="text-lg font-bold mb-4">Nova Categoria</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="w-full max-w-sm bg-white border border-slate-200 p-6 rounded-2xl relative shadow-xl text-slate-800 animate-in fade-in zoom-in-95 duration-150">
+            <h3 className="text-lg font-bold mb-4 text-slate-900">Nova Categoria</h3>
             <form onSubmit={handleAddCategory} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Nome da Categoria</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Nome da Categoria</label>
                 <input
                   type="text"
                   required
-                  placeholder="Ex: Educação"
-                  className="w-full px-4 py-3 rounded-xl glass-input text-sm"
+                  placeholder="Ex: Insumos de Produção"
+                  className="w-full px-4 py-3 rounded-xl erp-input text-sm"
                   value={catName}
                   onChange={(e) => setCatName(e.target.value)}
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase mb-2">Cor para Gráficos</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Cor de Identificação</label>
                 <div className="flex gap-2 items-center">
                   <input
                     type="color"
@@ -683,7 +1210,7 @@ export default function Dashboard() {
                     value={catColor}
                     onChange={(e) => setCatColor(e.target.value)}
                   />
-                  <span className="text-xs text-slate-400 font-mono">{catColor}</span>
+                  <span className="text-xs text-slate-500 font-mono">{catColor}</span>
                 </div>
               </div>
 
@@ -691,19 +1218,162 @@ export default function Dashboard() {
                 <button
                   type="button"
                   onClick={() => setShowAddCat(false)}
-                  className="flex-1 py-3 px-4 text-sm font-semibold rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 transition cursor-pointer"
+                  className="flex-1 py-3 px-4 text-sm font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 transition cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="flex-1 py-3 px-4 flex items-center justify-center gap-2 text-sm font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition cursor-pointer"
+                  className="flex-1 py-3 px-4 flex items-center justify-center gap-2 text-sm font-semibold rounded-xl bg-sky-600 hover:bg-sky-500 text-white transition cursor-pointer"
                 >
-                  {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Criar"}
+                  {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Gravar Categoria"}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit User Modal */}
+      {showEditUserModal && editingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md bg-white border border-slate-200 p-6 rounded-2xl relative shadow-xl text-slate-800 animate-in fade-in zoom-in-95 duration-150">
+            <h3 className="text-lg font-bold mb-4 text-slate-900">Editar Conta de Usuário</h3>
+            <form onSubmit={handleUpdateUser} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Nome Completo</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Nome do usuário"
+                  className="w-full px-4 py-3 rounded-xl erp-input text-sm text-slate-850"
+                  value={editUserName}
+                  onChange={(e) => setEditUserName(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Endereço de E-mail</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="exemplo@dominio.com"
+                  className="w-full px-4 py-3 rounded-xl erp-input text-sm text-slate-850"
+                  value={editUserEmail}
+                  onChange={(e) => setEditUserEmail(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Nível de Acesso (Role)</label>
+                <select
+                  className="w-full px-4 py-3 rounded-xl erp-input text-sm font-semibold text-slate-800"
+                  value={editUserRole}
+                  onChange={(e) => setEditUserRole(e.target.value)}
+                >
+                  <option value="USER">Usuário Comum</option>
+                  <option value="ADMIN">Administrador</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Nova Senha (deixe em branco para manter a atual)</label>
+                <input
+                  type="password"
+                  placeholder="Digite uma nova senha se quiser alterar"
+                  className="w-full px-4 py-3 rounded-xl erp-input text-sm text-slate-850"
+                  value={editUserPassword}
+                  onChange={(e) => setEditUserPassword(e.target.value)}
+                />
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditUserModal(false);
+                    setEditingUser(null);
+                    setEditUserPassword("");
+                  }}
+                  className="flex-1 py-3 px-4 text-sm font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="flex-1 py-3 px-4 flex items-center justify-center gap-2 text-sm font-semibold rounded-xl bg-sky-600 hover:bg-sky-500 text-white transition cursor-pointer"
+                >
+                  {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Salvar Alterações"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Report Modal */}
+      {showReportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md bg-white border border-slate-200 p-6 rounded-2xl relative shadow-xl text-slate-800 animate-in fade-in zoom-in-95 duration-150">
+            <h3 className="text-lg font-bold mb-2 text-slate-900">Exportar Relatório PDF</h3>
+            <p className="text-xs text-slate-500 mb-6">Selecione o nível de detalhamento do relatório das transações consolidadas.</p>
+            
+            <div className="space-y-4">
+              <button
+                onClick={() => setReportType("detailed")}
+                className={`w-full p-4 rounded-xl border text-left transition flex items-center gap-3 cursor-pointer ${
+                  reportType === "detailed"
+                    ? "bg-sky-50 border-sky-500 text-sky-900"
+                    : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
+                }`}
+              >
+                <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                  reportType === "detailed" ? "border-sky-500 bg-sky-500" : "border-slate-300"
+                }`}>
+                  {reportType === "detailed" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold">Relatório Detalhado</h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Exibe receitas, despesas, data, descrição e valor de cada lançamento.</p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setReportType("summary")}
+                className={`w-full p-4 rounded-xl border text-left transition flex items-center gap-3 cursor-pointer ${
+                  reportType === "summary"
+                    ? "bg-sky-50 border-sky-500 text-sky-900"
+                    : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
+                }`}
+              >
+                <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                  reportType === "summary" ? "border-sky-500 bg-sky-500" : "border-slate-300"
+                }`}>
+                  {reportType === "summary" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold">Relatório Simplificado</h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Mostra os totais acumulados de entradas e saídas e agrupamento por categoria.</p>
+                </div>
+              </button>
+            </div>
+
+            <div className="flex gap-3 mt-8">
+              <button
+                type="button"
+                onClick={() => setShowReportModal(false)}
+                className="flex-1 py-3 px-4 text-sm font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 transition cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleGeneratePDF}
+                className="flex-1 py-3 px-4 flex items-center justify-center gap-2 text-sm font-semibold rounded-xl bg-sky-600 hover:bg-sky-500 text-white transition cursor-pointer shadow-sm shadow-sky-600/10"
+              >
+                Gerar PDF
+              </button>
+            </div>
           </div>
         </div>
       )}
