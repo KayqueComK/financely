@@ -775,45 +775,54 @@ export default function Dashboard() {
 
               {/* Pie Chart */}
               <div className="erp-card p-6 rounded-xl flex flex-col justify-between">
-                <div className="mb-4">
-                  <h3 className="font-bold text-sm tracking-tight text-slate-800 uppercase mb-1">Centro de Custos / Categorias</h3>
-                  <p className="text-xs text-slate-500">Distribuição percentual das despesas da organização.</p>
-                </div>
-                <div className="h-64 w-full flex items-center justify-center relative">
-                  {pieData.length > 0 ? (
-                    <div className="w-full h-full relative flex items-center justify-center">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={pieData}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={60}
-                            outerRadius={80}
-                            paddingAngle={5}
-                            dataKey="value"
-                          >
-                            {pieData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-                          <Tooltip
-                            contentStyle={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: "8px" }}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                      {/* Legend inside absolute */}
-                      <div className="absolute flex flex-col items-center">
-                        <PieIcon className="w-5 h-5 text-sky-600" />
-                        <span className="text-[10px] text-slate-500 mt-1 uppercase font-bold">Custos</span>
+                <div>
+                  <div className="mb-4">
+                    <h3 className="font-bold text-sm tracking-tight text-slate-800 uppercase mb-1">Centro de Custos / Categorias</h3>
+                    <p className="text-xs text-slate-500">Distribuição percentual das despesas da organização.</p>
+                  </div>
+                  <div className="h-52 w-full flex items-center justify-center relative">
+                    {pieData.length > 0 ? (
+                      <div className="w-full h-full relative flex items-center justify-center">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={pieData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={60}
+                              outerRadius={80}
+                              paddingAngle={5}
+                              dataKey="value"
+                            >
+                              {pieData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              contentStyle={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: "8px", zIndex: 100 }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-xs text-slate-400">
-                      Sem despesas lançadas no período.
-                    </div>
-                  )}
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-xs text-slate-400">
+                        Sem despesas lançadas no período.
+                      </div>
+                    )}
+                  </div>
                 </div>
+
+                {/* Custom Legend at Bottom */}
+                {pieData.length > 0 && (
+                  <div className="mt-4 flex flex-wrap gap-2 justify-center text-[10px] font-bold text-slate-600 uppercase border-t border-slate-100 pt-3">
+                    {pieData.map((item, idx) => (
+                      <div key={idx} className="flex items-center gap-1.5 bg-slate-50 border border-slate-200/65 px-2.5 py-1 rounded-lg">
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
+                        <span>{item.name}: {formatValue(item.value)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
             </section>
