@@ -1,10 +1,18 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
+import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import prisma from "./db";
 import bcrypt from "bcryptjs";
 
 export const authOptions: NextAuthOptions = {
+  adapter: PrismaAdapter(prisma),
   providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID as string,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+      allowDangerousEmailAccountLinking: true,
+    }),
     CredentialsProvider({
       name: "Credentials",
       credentials: {
@@ -25,9 +33,14 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Nenhum usuário encontrado com este e-mail.");
         }
 
-        const isValidPassword = await bcrypt.compare(credentials.password, user.password);
+        const isValidPassword = user.password 
+          ? await bcrypt.compare(credentials.password, user.password)
+          : false;
 
         if (!isValidPassword) {
+          if (!user.password) {
+            throw new Error("Esta conta usa login com o Google. Por favor, entre usando o botão do Google.");
+          }
           throw new Error("Senha incorreta.");
         }
 
