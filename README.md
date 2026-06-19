@@ -38,7 +38,7 @@ Este projeto foi construído para servir como um **portfólio de alto nível té
 
 1. **Clone o repositório:**
    ```bash
-   git clone <link-do-seu-repositorio>
+   git clone (https://github.com/KayqueComK/financely/edit/main/README.md)
    cd financely
    ```
 
