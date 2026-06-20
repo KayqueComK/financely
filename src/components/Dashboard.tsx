@@ -67,7 +67,13 @@ export default function Dashboard() {
   const [selectedCurrency, setSelectedCurrency] = useState<"BRL" | "USD" | "EUR">("BRL");
 
 
-  const [sidebarHidden, setSidebarHidden] = useState(false);
+  const [sidebarHidden, setSidebarHidden] = useState(true);
+
+  useEffect(() => {
+    if (window.innerWidth >= 768) {
+      setSidebarHidden(false);
+    }
+  }, []);
   const [activeTab, setActiveTab] = useState<"dashboard" | "admin">("dashboard");
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportType, setReportType] = useState<"summary" | "detailed">("detailed");
@@ -549,11 +555,19 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="flex-1 flex flex-row min-h-screen bg-slate-50 text-slate-900">
+    <div className="flex-1 flex flex-row min-h-screen bg-slate-50 text-slate-900 relative">
+
+      {/* Mobile Backdrop */}
+      {!sidebarHidden && (
+        <div 
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 md:hidden"
+          onClick={() => setSidebarHidden(true)}
+        />
+      )}
 
       {/* Sidebar Navigation - Navy Escura (Padrão ERP) */}
-      <aside className={`h-screen sticky top-0 bg-slate-900 border-r border-slate-800 text-slate-200 shrink-0 transition-[width,opacity] duration-300 ease-in-out ${
-        sidebarHidden ? "w-0 opacity-0 border-r-0 pointer-events-none" : "w-64 opacity-100"
+      <aside className={`fixed inset-y-0 left-0 z-50 md:relative md:sticky md:top-0 h-screen bg-slate-900 border-r border-slate-800 text-slate-200 shrink-0 transition-transform md:transition-[width,opacity] duration-300 ease-in-out ${
+        sidebarHidden ? "-translate-x-full md:translate-x-0 md:w-0 md:opacity-0 md:border-r-0 md:pointer-events-none" : "translate-x-0 w-64 md:opacity-100"
       } overflow-hidden`}>
         <div className="w-64 h-full p-6 flex flex-col justify-between shrink-0">
           <div>
@@ -630,7 +644,7 @@ export default function Dashboard() {
       </aside>
 
       {/* Main Content Area - Light Mode */}
-      <main className="flex-1 p-6 md:p-8 overflow-y-auto space-y-6 bg-slate-50">
+      <main className="flex-1 p-4 md:p-8 w-full min-w-0 overflow-y-auto space-y-6 bg-slate-50">
 
         {/* Top Header Controls */}
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200 pb-5">
