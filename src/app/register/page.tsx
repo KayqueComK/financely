@@ -40,39 +40,36 @@ export default function Register() {
   };
 
   return (
-    <div className="flex-1 flex items-center justify-center min-h-screen px-4 py-12 bg-radial from-slate-900 via-slate-950 to-black">
-      <div className="w-full max-w-md p-8 glass rounded-2xl relative overflow-hidden">
-        {/* Background glow */}
-        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="flex-1 flex items-center justify-center min-h-screen px-4 py-12 bg-slate-900">
+      <div className="w-full max-w-md p-8 bg-white border border-slate-200 rounded-2xl relative overflow-hidden shadow-2xl shadow-sky-900/5">
 
         <div className="flex flex-col items-center mb-8">
-          <div className="flex items-center justify-center w-12 h-12 mb-3 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400">
-            <Landmark className="w-6 h-6 animate-pulse" />
+          <div className="flex items-center justify-center w-12 h-12 mb-3 rounded-xl bg-sky-50 border border-sky-100 text-sky-600">
+            <Landmark className="w-6 h-6" />
           </div>
-          <h1 className="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-slate-100 to-indigo-200 bg-clip-text text-transparent">
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
             Crie sua conta no Financely
           </h1>
-          <p className="text-slate-400 text-sm mt-1">
+          <p className="text-slate-500 text-sm mt-1">
             Comece a organizar sua vida financeira hoje.
           </p>
         </div>
 
         {error && (
-          <div className="p-3 mb-4 text-xs font-semibold rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400">
+          <div className="p-3 mb-4 text-xs font-semibold rounded-lg bg-rose-50 text-rose-600 border border-rose-200">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
               Nome Completo
             </label>
             <input
               type="text"
               required
-              className="w-full px-4 py-3 rounded-xl glass-input text-sm"
+              className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 text-sm transition"
               placeholder="Digite seu nome"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -80,13 +77,13 @@ export default function Register() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
               E-mail
             </label>
             <input
               type="email"
               required
-              className="w-full px-4 py-3 rounded-xl glass-input text-sm"
+              className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 text-sm transition"
               placeholder="seuemail@exemplo.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -94,13 +91,13 @@ export default function Register() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
               Senha
             </label>
             <input
               type="password"
               required
-              className="w-full px-4 py-3 rounded-xl glass-input text-sm"
+              className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 text-sm transition"
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -110,7 +107,7 @@ export default function Register() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 px-4 flex items-center justify-center gap-2 text-sm font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-all cursor-pointer shadow-lg shadow-indigo-600/20 active:scale-98"
+            className="w-full py-3 px-4 flex items-center justify-center gap-2 text-sm font-semibold rounded-xl bg-sky-600 hover:bg-sky-500 text-white transition-all cursor-pointer shadow-md shadow-sky-600/20 active:scale-98"
           >
             {loading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -123,9 +120,9 @@ export default function Register() {
           </button>
         </form>
 
-        <div className="mt-6 text-center text-xs text-slate-400">
+        <div className="mt-6 text-center text-xs text-slate-500">
           Já possui uma conta?{" "}
-          <Link href="/login" className="text-indigo-400 hover:text-indigo-300 font-semibold underline transition">
+          <Link href="/login" className="text-sky-600 hover:text-sky-500 font-bold transition">
             Entrar
           </Link>
         </div>
