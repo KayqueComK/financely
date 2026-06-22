@@ -37,6 +37,7 @@ export async function POST(req: Request) {
           name,
           email: emailLower,
           password: hashedPassword,
+          emailVerified: new Date(),
         },
       });
 

@@ -19,6 +19,15 @@ function LoginForm() {
     if (searchParams.get("registered")) {
       setSuccess("Conta criada com sucesso! Faça login abaixo.");
     }
+    
+    const urlError = searchParams.get("error");
+    if (urlError) {
+      if (urlError === "OAuthAccountNotLinked") {
+        setError("Para confirmar sua identidade, faça o primeiro login usando seu e-mail e senha. Depois disso, você poderá usar o botão do Google.");
+      } else {
+        setError("Ocorreu um erro ao entrar com o Google. (" + urlError + ")");
+      }
+    }
   }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {

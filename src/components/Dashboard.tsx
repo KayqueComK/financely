@@ -25,7 +25,8 @@ import {
   Users,
   Shield,
   FileText,
-  Pencil
+  Pencil,
+  TrendingUp
 } from "lucide-react";
 import { jsPDF } from "jspdf";
 import {
@@ -74,7 +75,145 @@ export default function Dashboard() {
       setSidebarHidden(false);
     }
   }, []);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "admin">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "admin" | "market">("dashboard");
+  const [marketQuery, setMarketQuery] = useState("");
+  const [marketData, setMarketData] = useState<any[]>([]);
+  const [marketLoading, setMarketLoading] = useState(false);
+  const [watchlist, setWatchlist] = useState<string[]>([]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("financely_watchlist");
+    if (saved) {
+      try {
+        let parsed = JSON.parse(saved);
+        // Remove crypto from old saves as free tier doesn't support it
+        if (parsed.includes("BTC-BRL") || parsed.includes("BTCBRL")) {
+          parsed = parsed.filter((s: string) => s !== "BTC-BRL" && s !== "BTCBRL");
+          localStorage.setItem("financely_watchlist", JSON.stringify(parsed));
+        }
+        setWatchlist(parsed);
+      } catch (e) {
+        setWatchlist(["PETR4", "VALE3", "ITUB4", "BBAS3"]);
+      }
+    } else {
+      setWatchlist(["PETR4", "VALE3", "ITUB4", "BBAS3"]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (watchlist.length > 0) {
+      localStorage.setItem("financely_watchlist", JSON.stringify(watchlist));
+    }
+  }, [watchlist]);
+
+  const handleSearchMarket = async () => {
+    if (!marketQuery) return;
+    const query = marketQuery.trim().toUpperCase();
+    setMarketLoading(true);
+    try {
+      const res = await fetch(`/api/market?tickers=${encodeURIComponent(query)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.results && data.results.length > 0) {
+          setWatchlist(prev => {
+            const updated = [...prev];
+            data.results.forEach((r: any) => {
+              if (!updated.includes(r.symbol)) updated.push(r.symbol);
+            });
+            return updated;
+          });
+          setMarketQuery("");
+        } else {
+          alert("Nenhum ativo encontrado com esse código.");
+        }
+      } else {
+        const data = await res.json();
+        alert(data.error || "Erro ao buscar dados do mercado.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Erro de conexão.");
+    } finally {
+      setMarketLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "market" && watchlist.length > 0) {
+      const fetchWatchlist = async () => {
+        setMarketLoading(true);
+        try {
+          const promises = watchlist.map(ticker => 
+            fetch(`/api/market?tickers=${encodeURIComponent(ticker)}`).then(res => {
+              if (!res.ok) throw new Error("Erro na requisição");
+              return res.json();
+            })
+          );
+          
+          const results = await Promise.allSettled(promises);
+          const combinedData: any[] = [];
+          
+          results.forEach(result => {
+            if (result.status === "fulfilled" && result.value.results) {
+              combinedData.push(result.value.results[0]);
+            }
+          });
+          
+          setMarketData(combinedData);
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setMarketLoading(false);
+        }
+      };
+      fetchWatchlist();
+    }
+  }, [activeTab, watchlist]);
+
+  const removeFromWatchlist = (symbol: string) => {
+    setWatchlist(prev => prev.filter(s => s !== symbol));
+    setMarketData(prev => prev.filter(a => a.symbol !== symbol));
+  };
+
+  const [selectedAssetChart, setSelectedAssetChart] = useState<any | null>(null);
+  const [chartRange, setChartRange] = useState<"1d" | "5d" | "1mo">("1d");
+  const [marketChartData, setMarketChartData] = useState<any[]>([]);
+  const [chartLoading, setChartLoading] = useState(false);
+
+  useEffect(() => {
+    if (selectedAssetChart) {
+      const fetchChart = async () => {
+        setChartLoading(true);
+        try {
+          let interval = "5m";
+          if (chartRange === "5d") interval = "15m";
+          if (chartRange === "1mo") interval = "1d";
+
+          const res = await fetch(`/api/market?tickers=${selectedAssetChart.symbol}&range=${chartRange}&interval=${interval}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.results && data.results.length > 0 && data.results[0].historicalDataPrice) {
+              const formatted = data.results[0].historicalDataPrice.map((d: any) => ({
+                date: chartRange === "1d" 
+                  ? new Date(d.date * 1000).toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' })
+                  : new Date(d.date * 1000).toLocaleDateString("pt-BR", { day: '2-digit', month: '2-digit' }),
+                price: d.close
+              }));
+              setMarketChartData(formatted);
+            } else {
+              setMarketChartData([]);
+            }
+          }
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setChartLoading(false);
+        }
+      };
+      fetchChart();
+    }
+  }, [selectedAssetChart, chartRange]);
+
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportType, setReportType] = useState<"summary" | "detailed">("detailed");
   const [users, setUsers] = useState<any[]>([]);
@@ -566,7 +705,7 @@ export default function Dashboard() {
       )}
 
       {/* Sidebar Navigation - Navy Escura (Padrão ERP) */}
-      <aside className={`fixed inset-y-0 left-0 z-50 md:relative md:sticky md:top-0 h-screen bg-slate-900 border-r border-slate-800 text-slate-200 shrink-0 transition-transform md:transition-[width,opacity] duration-300 ease-in-out ${
+      <aside className={`fixed inset-y-0 left-0 z-50 md:relative md:sticky md:top-0 h-screen bg-slate-900 border-r border-slate-800 text-slate-200 shrink-0 transition-transform md:transition-[width,opacity] duration-300 ease-in-out select-none ${
         sidebarHidden ? "-translate-x-full md:translate-x-0 md:w-0 md:opacity-0 md:border-r-0 md:pointer-events-none" : "translate-x-0 w-64 md:opacity-100"
       } overflow-hidden`}>
         <div className="w-64 h-full p-6 flex flex-col justify-between shrink-0">
@@ -626,6 +765,16 @@ export default function Dashboard() {
                 </button>
               )}
               <button
+                onClick={() => setActiveTab("market")}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium text-sm transition text-left cursor-pointer ${
+                  activeTab === "market"
+                    ? "bg-sky-600/15 border border-sky-500/20 text-sky-400"
+                    : "hover:bg-slate-800 text-slate-400 hover:text-white"
+                }`}
+              >
+                <TrendingUp className="w-4 h-4" /> Mercado & Cripto
+              </button>
+              <button
                 onClick={() => setShowReportModal(true)}
                 className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium text-sm transition text-left cursor-pointer hover:bg-slate-800 text-slate-400 hover:text-white"
               >
@@ -647,7 +796,7 @@ export default function Dashboard() {
       <main className="flex-1 p-4 md:p-8 w-full min-w-0 overflow-y-auto space-y-6 bg-slate-50">
 
         {/* Top Header Controls */}
-        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200 pb-5">
+        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200 pb-5 select-none">
           <div className="flex items-center gap-3">
             {sidebarHidden && (
               <button
@@ -660,12 +809,14 @@ export default function Dashboard() {
             )}
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-                {activeTab === "dashboard" ? "Visão Geral" : "Painel Admin"}
+                {activeTab === "dashboard" ? "Visão Geral" : activeTab === "admin" ? "Painel Admin" : "Cotações do Mercado"}
               </h1>
               <p className="text-slate-500 text-sm">
                 {activeTab === "dashboard"
                   ? "Painel corporativo de controle de despesas, receitas e fluxo."
-                  : "Gerenciamento de usuários cadastrados e controle de acesso."}
+                  : activeTab === "admin"
+                    ? "Gerenciamento de usuários cadastrados e controle de acesso."
+                    : "Consulte o valor de ações e criptomoedas em tempo real."}
               </p>
             </div>
           </div>
@@ -700,7 +851,7 @@ export default function Dashboard() {
           )}
         </header>
 
-        {activeTab === "dashboard" ? (
+        {activeTab === "dashboard" && (
           <>
             {/* Financial Cards Grid */}
             <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -937,7 +1088,9 @@ export default function Dashboard() {
               </div>
             </section>
           </>
-        ) : (
+        )}
+
+        {activeTab === "admin" && (
           <section className="space-y-6 animate-in fade-in duration-200">
             {/* Search and Summary Card */}
             <div className="erp-card p-6 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1018,6 +1171,79 @@ export default function Dashboard() {
                 </table>
               </div>
             </div>
+          </section>
+        )}
+
+        {activeTab === "market" && (
+          <section className="space-y-6 animate-in fade-in duration-200">
+            <div className="erp-card p-6 rounded-xl flex flex-col md:flex-row gap-4 items-center justify-between">
+              <div>
+                <h3 className="font-bold text-slate-900 text-lg">Cotações da Bolsa e Cripto</h3>
+                <p className="text-xs text-slate-500">Busque por ações (Ex: PETR4, ITUB4, MGLU3).</p>
+              </div>
+              <div className="flex gap-2 w-full md:w-auto">
+                <input
+                  type="text"
+                  placeholder="PETR4, MGLU3..."
+                  className="w-full md:w-64 px-4 py-2.5 rounded-xl erp-input text-sm"
+                  value={marketQuery}
+                  onChange={(e) => setMarketQuery(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSearchMarket();
+                  }}
+                />
+                <button
+                  onClick={handleSearchMarket}
+                  disabled={marketLoading}
+                  className="bg-sky-600 hover:bg-sky-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer flex items-center justify-center min-w-[100px]"
+                >
+                  {marketLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Buscar"}
+                </button>
+              </div>
+            </div>
+
+            {marketData.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {marketData.map((asset, index) => (
+                  <div 
+                    key={index} 
+                    onClick={() => setSelectedAssetChart(asset)}
+                    className="erp-card p-6 rounded-xl flex flex-col relative overflow-hidden select-none cursor-pointer hover:border-sky-500/50 transition border border-transparent caret-transparent"
+                  >
+                    <div className="flex items-center gap-4 mb-4">
+                      {asset.logourl && (
+                        <img src={asset.logourl} alt={asset.symbol} className="w-12 h-12 rounded-lg object-contain bg-white p-1 border border-slate-100" />
+                      )}
+                      <div>
+                        <h4 className="font-bold text-slate-900 pointer-events-none">{asset.symbol}</h4>
+                        <p className="text-[10px] text-slate-500 line-clamp-1 pointer-events-none">{asset.shortName || asset.longName || "Ativo"}</p>
+                      </div>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeFromWatchlist(asset.symbol);
+                        }}
+                        className="ml-auto text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition cursor-pointer"
+                        title="Remover"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="mt-auto flex justify-between items-end">
+                      <div>
+                        <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Preço Atual</p>
+                        <p className="text-2xl font-extrabold text-slate-900">
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: asset.currency || 'BRL' }).format(asset.regularMarketPrice)}
+                        </p>
+                      </div>
+                      <div className={`px-2 py-1 rounded-md text-xs font-bold ${asset.regularMarketChangePercent >= 0 ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+                        {asset.regularMarketChangePercent > 0 ? "+" : ""}{asset.regularMarketChangePercent?.toFixed(2)}%
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
         )}
 
@@ -1396,6 +1622,75 @@ export default function Dashboard() {
               >
                 Gerar PDF
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Chart Modal */}
+      {selectedAssetChart && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4" onClick={() => setSelectedAssetChart(null)}>
+          <div className="w-full max-w-3xl bg-white border border-slate-200 p-6 rounded-2xl relative shadow-xl text-slate-800 animate-in fade-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-4">
+                {selectedAssetChart.logourl && (
+                  <img src={selectedAssetChart.logourl} alt={selectedAssetChart.symbol} className="w-12 h-12 rounded-lg object-contain bg-slate-50 p-1 border border-slate-100" />
+                )}
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">{selectedAssetChart.symbol}</h3>
+                  <p className="text-xs text-slate-500">{selectedAssetChart.shortName || selectedAssetChart.longName}</p>
+                </div>
+              </div>
+              <button onClick={() => setSelectedAssetChart(null)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition cursor-pointer">
+                Fechar
+              </button>
+            </div>
+
+            <div className="flex gap-2 mb-6 bg-slate-100 p-1 rounded-lg w-max">
+              <button 
+                onClick={() => setChartRange("1d")} 
+                className={`px-4 py-1.5 text-xs font-bold rounded-md transition cursor-pointer ${chartRange === "1d" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+              >1 Dia</button>
+              <button 
+                onClick={() => setChartRange("5d")} 
+                className={`px-4 py-1.5 text-xs font-bold rounded-md transition cursor-pointer ${chartRange === "5d" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+              >1 Semana</button>
+              <button 
+                onClick={() => setChartRange("1mo")} 
+                className={`px-4 py-1.5 text-xs font-bold rounded-md transition cursor-pointer ${chartRange === "1mo" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+              >1 Mês</button>
+            </div>
+
+            <div className="h-72 w-full">
+              {chartLoading ? (
+                <div className="w-full h-full flex flex-col items-center justify-center">
+                  <Loader2 className="w-8 h-8 animate-spin text-sky-500 mb-2" />
+                  <p className="text-xs text-slate-500">Buscando histórico...</p>
+                </div>
+              ) : marketChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={marketChartData}>
+                    <defs>
+                      <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={selectedAssetChart.regularMarketChangePercent >= 0 ? "#10b981" : "#f43f5e"} stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor={selectedAssetChart.regularMarketChangePercent >= 0 ? "#10b981" : "#f43f5e"} stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                    <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#64748b" }} dy={10} minTickGap={30} />
+                    <YAxis domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#64748b" }} dx={-10} tickFormatter={(val) => `R$ ${val.toFixed(2)}`} />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)', fontSize: '12px', fontWeight: 'bold' }}
+                      formatter={(value: number) => [`R$ ${value.toFixed(2)}`, "Preço"]}
+                      labelStyle={{ color: '#64748b', marginBottom: '4px' }}
+                    />
+                    <Area type="monotone" dataKey="price" stroke={selectedAssetChart.regularMarketChangePercent >= 0 ? "#10b981" : "#f43f5e"} strokeWidth={3} fillOpacity={1} fill="url(#colorPrice)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center">
+                  <p className="text-sm text-slate-500">Sem dados históricos para este período.</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
