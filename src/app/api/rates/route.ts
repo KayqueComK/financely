@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    const res = await fetch("https://economia.api.uol.com.br/last/USD-BRL,EUR-BRL", {
-      next: { revalidate: 86400 }, // Cache rates for 24 hours (1 day)
+    const res = await fetch("https://economia.awesomeapi.com.br/last/USD-BRL,EUR-BRL", {
+      next: { revalidate: 3600 }, // Cache rates for 1 hour
     });
 
     if (!res.ok) {

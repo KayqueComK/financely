@@ -143,22 +143,22 @@ export default function Dashboard() {
       const fetchWatchlist = async () => {
         setMarketLoading(true);
         try {
-          const promises = watchlist.map(ticker => 
+          const promises = watchlist.map(ticker =>
             fetch(`/api/market?tickers=${encodeURIComponent(ticker)}`).then(res => {
               if (!res.ok) throw new Error("Erro na requisição");
               return res.json();
             })
           );
-          
+
           const results = await Promise.allSettled(promises);
           const combinedData: any[] = [];
-          
+
           results.forEach(result => {
             if (result.status === "fulfilled" && result.value.results) {
               combinedData.push(result.value.results[0]);
             }
           });
-          
+
           setMarketData(combinedData);
         } catch (e) {
           console.error(e);
@@ -194,7 +194,7 @@ export default function Dashboard() {
             const data = await res.json();
             if (data.results && data.results.length > 0 && data.results[0].historicalDataPrice) {
               const formatted = data.results[0].historicalDataPrice.map((d: any) => ({
-                date: chartRange === "1d" 
+                date: chartRange === "1d"
                   ? new Date(d.date * 1000).toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' })
                   : new Date(d.date * 1000).toLocaleDateString("pt-BR", { day: '2-digit', month: '2-digit' }),
                 price: d.close
@@ -214,13 +214,38 @@ export default function Dashboard() {
     }
   }, [selectedAssetChart, chartRange]);
 
+  const [selectedCurrencyChart, setSelectedCurrencyChart] = useState<string | null>(null);
+  const [currencyChartRange, setCurrencyChartRange] = useState<"1d" | "1w" | "1m" | "1y">("1d");
+  const [currencyChartData, setCurrencyChartData] = useState<any[]>([]);
+  const [currencyChartLoading, setCurrencyChartLoading] = useState(false);
+
+  useEffect(() => {
+    if (selectedCurrencyChart) {
+      const fetchCurrencyChart = async () => {
+        setCurrencyChartLoading(true);
+        try {
+          const res = await fetch(`/api/rates/history?currency=${selectedCurrencyChart}&range=${currencyChartRange}`);
+          if (res.ok) {
+            const data = await res.json();
+            setCurrencyChartData(data);
+          }
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setCurrencyChartLoading(false);
+        }
+      };
+      fetchCurrencyChart();
+    }
+  }, [selectedCurrencyChart, currencyChartRange]);
+
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportType, setReportType] = useState<"summary" | "detailed">("detailed");
   const [users, setUsers] = useState<any[]>([]);
   const [editingUser, setEditingUser] = useState<any | null>(null);
   const [showEditUserModal, setShowEditUserModal] = useState(false);
   const [searchUserQuery, setSearchUserQuery] = useState("");
-  
+
   // Edit user fields
   const [editUserName, setEditUserName] = useState("");
   const [editUserEmail, setEditUserEmail] = useState("");
@@ -325,53 +350,53 @@ export default function Dashboard() {
 
   const handleGeneratePDF = () => {
     const doc = new jsPDF();
-    
+
     // Header
     doc.setFont("helvetica", "bold");
     doc.setFontSize(22);
     doc.setTextColor(15, 23, 42); // slate-900
     doc.text("Financely", 14, 20);
-    
+
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.setTextColor(100, 116, 139); // slate-500
     doc.text("Sistema SaaS de Gestão Financeira", 14, 25);
     doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 14, 30);
-    
+
     // Line separator
     doc.setDrawColor(226, 232, 240); // slate-200
     doc.line(14, 35, 196, 35);
-    
+
     // Document Title
     doc.setFont("helvetica", "bold");
     doc.setFontSize(16);
     doc.setTextColor(15, 23, 42);
     const title = reportType === "detailed" ? "Relatório Financeiro Detalhado" : "Relatório Financeiro Simplificado (Resumo)";
     doc.text(title, 14, 45);
-    
+
     // Metrics section
     doc.setFontSize(12);
     doc.text("Resumo Geral:", 14, 55);
-    
+
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.text(`Total de Receitas: ${formatValue(totalIncome)}`, 14, 63);
     doc.text(`Total de Despesas: ${formatValue(totalExpense)}`, 14, 69);
-    
+
     const balanceColor = balance >= 0 ? [16, 185, 129] : [239, 68, 68]; // emerald vs rose
     doc.setFont("helvetica", "bold");
     doc.text("Saldo Líquido: ", 14, 75);
     doc.setTextColor(balanceColor[0], balanceColor[1], balanceColor[2]);
     doc.text(formatValue(balance), 42, 75);
     doc.setTextColor(15, 23, 42);
-    
+
     doc.line(14, 82, 196, 82);
 
     if (reportType === "detailed") {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
       doc.text("Lista Detalhada de Lançamentos:", 14, 92);
-      
+
       doc.setFontSize(9);
       // Table Header
       let y = 100;
@@ -384,7 +409,7 @@ export default function Dashboard() {
       doc.text("Categoria", 95, y + 5);
       doc.text("Tipo", 135, y + 5);
       doc.text("Valor", 175, y + 5);
-      
+
       doc.setFont("helvetica", "normal");
       doc.setTextColor(15, 23, 42);
       y += 7;
@@ -418,7 +443,7 @@ export default function Dashboard() {
         doc.text(dateStr, 16, y + 5);
         doc.text(descStr, 38, y + 5);
         doc.text(catStr, 95, y + 5);
-        
+
         if (tx.type === "INCOME") {
           doc.setTextColor(16, 185, 129); // emerald
         } else {
@@ -426,7 +451,7 @@ export default function Dashboard() {
         }
         doc.text(typeStr, 135, y + 5);
         doc.text(valStr, 175, y + 5);
-        
+
         doc.setTextColor(15, 23, 42); // reset
 
         // Draw light bottom border
@@ -439,7 +464,7 @@ export default function Dashboard() {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
       doc.text("Resumo de Gastos por Categoria:", 14, 92);
-      
+
       let y = 100;
       doc.setFillColor(248, 250, 252);
       doc.rect(14, y, 182, 7, "F");
@@ -448,7 +473,7 @@ export default function Dashboard() {
       doc.text("Categoria", 16, y + 5);
       doc.text("Lançamentos", 100, y + 5);
       doc.text("Total Gasto", 150, y + 5);
-      
+
       doc.setFont("helvetica", "normal");
       doc.setTextColor(15, 23, 42);
       y += 7;
@@ -482,7 +507,7 @@ export default function Dashboard() {
         });
       }
     }
-    
+
     doc.save(`relatorio-financeiro-${reportType}-${new Date().toISOString().split("T")[0]}.pdf`);
     setShowReportModal(false);
   };
@@ -698,16 +723,15 @@ export default function Dashboard() {
 
       {/* Mobile Backdrop */}
       {!sidebarHidden && (
-        <div 
+        <div
           className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 md:hidden"
           onClick={() => setSidebarHidden(true)}
         />
       )}
 
       {/* Sidebar Navigation - Navy Escura (Padrão ERP) */}
-      <aside className={`fixed inset-y-0 left-0 z-50 md:relative md:sticky md:top-0 h-screen bg-slate-900 border-r border-slate-800 text-slate-200 shrink-0 transition-transform md:transition-[width,opacity] duration-300 ease-in-out select-none ${
-        sidebarHidden ? "-translate-x-full md:translate-x-0 md:w-0 md:opacity-0 md:border-r-0 md:pointer-events-none" : "translate-x-0 w-64 md:opacity-100"
-      } overflow-hidden`}>
+      <aside className={`fixed inset-y-0 left-0 z-50 md:relative md:sticky md:top-0 h-screen bg-slate-900 border-r border-slate-800 text-slate-200 shrink-0 transition-transform md:transition-[width,opacity] duration-300 ease-in-out select-none ${sidebarHidden ? "-translate-x-full md:translate-x-0 md:w-0 md:opacity-0 md:border-r-0 md:pointer-events-none" : "translate-x-0 w-64 md:opacity-100"
+        } overflow-hidden`}>
         <div className="w-64 h-full p-6 flex flex-col justify-between shrink-0">
           <div>
             <div className="flex items-center justify-between gap-3 mb-8">
@@ -732,11 +756,10 @@ export default function Dashboard() {
             <div className="mb-6 p-4 rounded-xl bg-slate-950/40 border border-slate-800">
               <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Usuário Logado</p>
               <h3 className="font-semibold text-white mt-0.5">{user?.name || "Usuário"}</h3>
-              <span className={`inline-flex items-center gap-1 mt-2 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                user?.role === "ADMIN" 
-                  ? "bg-amber-500/10 border border-amber-500/20 text-amber-400" 
-                  : "bg-sky-500/10 border border-sky-500/20 text-sky-400"
-              }`}>
+              <span className={`inline-flex items-center gap-1 mt-2 text-[10px] font-bold px-2 py-0.5 rounded-full ${user?.role === "ADMIN"
+                ? "bg-amber-500/10 border border-amber-500/20 text-amber-400"
+                : "bg-sky-500/10 border border-sky-500/20 text-sky-400"
+                }`}>
                 {user?.role === "ADMIN" ? "Administrador" : "Acesso Total"}
               </span>
             </div>
@@ -744,41 +767,32 @@ export default function Dashboard() {
             <nav className="space-y-2">
               <button
                 onClick={() => setActiveTab("dashboard")}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium text-sm transition text-left cursor-pointer ${
-                  activeTab === "dashboard"
-                    ? "bg-sky-600/15 border border-sky-500/20 text-sky-400"
-                    : "hover:bg-slate-800 text-slate-400 hover:text-white"
-                }`}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium text-sm transition text-left cursor-pointer ${activeTab === "dashboard"
+                  ? "bg-sky-600/15 border border-sky-500/20 text-sky-400"
+                  : "hover:bg-slate-800 text-slate-400 hover:text-white"
+                  }`}
               >
                 <Terminal className="w-4 h-4" /> Visão Geral
               </button>
               {user?.role === "ADMIN" && (
                 <button
                   onClick={() => setActiveTab("admin")}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium text-sm transition text-left cursor-pointer ${
-                    activeTab === "admin"
-                      ? "bg-sky-600/15 border border-sky-500/20 text-sky-400"
-                      : "hover:bg-slate-800 text-slate-400 hover:text-white"
-                  }`}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium text-sm transition text-left cursor-pointer ${activeTab === "admin"
+                    ? "bg-sky-600/15 border border-sky-500/20 text-sky-400"
+                    : "hover:bg-slate-800 text-slate-400 hover:text-white"
+                    }`}
                 >
                   <Users className="w-4 h-4" /> Painel Admin
                 </button>
               )}
               <button
                 onClick={() => setActiveTab("market")}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium text-sm transition text-left cursor-pointer ${
-                  activeTab === "market"
-                    ? "bg-sky-600/15 border border-sky-500/20 text-sky-400"
-                    : "hover:bg-slate-800 text-slate-400 hover:text-white"
-                }`}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium text-sm transition text-left cursor-pointer ${activeTab === "market"
+                  ? "bg-sky-600/15 border border-sky-500/20 text-sky-400"
+                  : "hover:bg-slate-800 text-slate-400 hover:text-white"
+                  }`}
               >
                 <TrendingUp className="w-4 h-4" /> Mercado & Cripto
-              </button>
-              <button
-                onClick={() => setShowReportModal(true)}
-                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium text-sm transition text-left cursor-pointer hover:bg-slate-800 text-slate-400 hover:text-white"
-              >
-                <FileText className="w-4 h-4" /> Gerar Relatório
               </button>
             </nav>
           </div>
@@ -832,8 +846,8 @@ export default function Dashboard() {
                       setSelectedCurrency(curr);
                     }}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition cursor-pointer ${selectedCurrency === curr
-                        ? "bg-sky-600 text-white shadow-sm"
-                        : "text-slate-600 hover:text-slate-800"
+                      ? "bg-sky-600 text-white shadow-sm"
+                      : "text-slate-600 hover:text-slate-800"
                       }`}
                   >
                     {curr}
@@ -896,8 +910,12 @@ export default function Dashboard() {
                 <span className="font-semibold text-slate-700">Painel Integrador Cambial (AwesomeAPI):</span>
               </div>
               <div className="flex gap-4">
-                <div>Câmbio Dólar: <span className="font-bold text-slate-900">R$ {usdRate.toFixed(2)}</span></div>
-                <div>Câmbio Euro: <span className="font-bold text-slate-900">R$ {eurRate.toFixed(2)}</span></div>
+                <button onClick={() => setSelectedCurrencyChart('USD-BRL')} className="hover:text-sky-600 transition cursor-pointer text-left">
+                  Câmbio Dólar: <span className="font-bold text-slate-900">R$ {usdRate.toFixed(2)}</span>
+                </button>
+                <button onClick={() => setSelectedCurrencyChart('EUR-BRL')} className="hover:text-sky-600 transition cursor-pointer text-left">
+                  Câmbio Euro: <span className="font-bold text-slate-900">R$ {eurRate.toFixed(2)}</span>
+                </button>
               </div>
             </section>
 
@@ -1001,6 +1019,12 @@ export default function Dashboard() {
                 </div>
                 <div className="flex gap-2">
                   <button
+                    onClick={() => setShowReportModal(true)}
+                    className="flex items-center gap-2 bg-sky-50 border border-sky-200 hover:bg-sky-100 text-sky-700 font-bold text-xs px-3 py-2 rounded-xl transition cursor-pointer shadow-sm"
+                  >
+                    <FileText className="w-4 h-4" /> Gerar PDF
+                  </button>
+                  <button
                     onClick={() => setShowAddCat(true)}
                     className="flex items-center gap-2 bg-white border border-slate-300 hover:border-slate-400 text-slate-700 font-bold text-xs px-3 py-2 rounded-xl transition cursor-pointer shadow-sm"
                   >
@@ -1103,7 +1127,7 @@ export default function Dashboard() {
                   onChange={(e) => setSearchUserQuery(e.target.value)}
                 />
                 <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-search"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-search"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
                 </span>
               </div>
               <div className="text-xs text-slate-500 font-medium">
@@ -1132,11 +1156,10 @@ export default function Dashboard() {
                         <td className="py-4 px-4 font-semibold text-slate-800">{u.name || "Sem Nome"}</td>
                         <td className="py-4 px-4 text-slate-600">{u.email}</td>
                         <td className="py-4 px-4">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                            u.role === "ADMIN"
-                              ? "bg-amber-500/10 border border-amber-500/20 text-amber-600"
-                              : "bg-sky-500/10 border border-sky-500/20 text-sky-600"
-                          }`}>
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${u.role === "ADMIN"
+                            ? "bg-amber-500/10 border border-amber-500/20 text-amber-600"
+                            : "bg-sky-500/10 border border-sky-500/20 text-sky-600"
+                            }`}>
                             {u.role === "ADMIN" ? "Administrador" : "Usuário Comum"}
                           </span>
                         </td>
@@ -1205,8 +1228,8 @@ export default function Dashboard() {
             {marketData.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {marketData.map((asset, index) => (
-                  <div 
-                    key={index} 
+                  <div
+                    key={index}
                     onClick={() => setSelectedAssetChart(asset)}
                     className="erp-card p-6 rounded-xl flex flex-col relative overflow-hidden select-none cursor-pointer hover:border-sky-500/50 transition border border-transparent caret-transparent"
                   >
@@ -1218,7 +1241,7 @@ export default function Dashboard() {
                         <h4 className="font-bold text-slate-900 pointer-events-none">{asset.symbol}</h4>
                         <p className="text-[10px] text-slate-500 line-clamp-1 pointer-events-none">{asset.shortName || asset.longName || "Ativo"}</p>
                       </div>
-                      <button 
+                      <button
                         onClick={(e) => {
                           e.stopPropagation();
                           removeFromWatchlist(asset.symbol);
@@ -1567,19 +1590,17 @@ export default function Dashboard() {
           <div className="w-full max-w-md bg-white border border-slate-200 p-6 rounded-2xl relative shadow-xl text-slate-800 animate-in fade-in zoom-in-95 duration-150">
             <h3 className="text-lg font-bold mb-2 text-slate-900">Exportar Relatório PDF</h3>
             <p className="text-xs text-slate-500 mb-6">Selecione o nível de detalhamento do relatório das transações consolidadas.</p>
-            
+
             <div className="space-y-4">
               <button
                 onClick={() => setReportType("detailed")}
-                className={`w-full p-4 rounded-xl border text-left transition flex items-center gap-3 cursor-pointer ${
-                  reportType === "detailed"
-                    ? "bg-sky-50 border-sky-500 text-sky-900"
-                    : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
-                }`}
+                className={`w-full p-4 rounded-xl border text-left transition flex items-center gap-3 cursor-pointer ${reportType === "detailed"
+                  ? "bg-sky-50 border-sky-500 text-sky-900"
+                  : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
+                  }`}
               >
-                <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                  reportType === "detailed" ? "border-sky-500 bg-sky-500" : "border-slate-300"
-                }`}>
+                <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${reportType === "detailed" ? "border-sky-500 bg-sky-500" : "border-slate-300"
+                  }`}>
                   {reportType === "detailed" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                 </div>
                 <div>
@@ -1590,15 +1611,13 @@ export default function Dashboard() {
 
               <button
                 onClick={() => setReportType("summary")}
-                className={`w-full p-4 rounded-xl border text-left transition flex items-center gap-3 cursor-pointer ${
-                  reportType === "summary"
-                    ? "bg-sky-50 border-sky-500 text-sky-900"
-                    : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
-                }`}
+                className={`w-full p-4 rounded-xl border text-left transition flex items-center gap-3 cursor-pointer ${reportType === "summary"
+                  ? "bg-sky-50 border-sky-500 text-sky-900"
+                  : "bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
+                  }`}
               >
-                <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                  reportType === "summary" ? "border-sky-500 bg-sky-500" : "border-slate-300"
-                }`}>
+                <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${reportType === "summary" ? "border-sky-500 bg-sky-500" : "border-slate-300"
+                  }`}>
                   {reportType === "summary" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                 </div>
                 <div>
@@ -1646,16 +1665,16 @@ export default function Dashboard() {
             </div>
 
             <div className="flex gap-2 mb-6 bg-slate-100 p-1 rounded-lg w-max">
-              <button 
-                onClick={() => setChartRange("1d")} 
+              <button
+                onClick={() => setChartRange("1d")}
                 className={`px-4 py-1.5 text-xs font-bold rounded-md transition cursor-pointer ${chartRange === "1d" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
               >1 Dia</button>
-              <button 
-                onClick={() => setChartRange("5d")} 
+              <button
+                onClick={() => setChartRange("5d")}
                 className={`px-4 py-1.5 text-xs font-bold rounded-md transition cursor-pointer ${chartRange === "5d" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
               >1 Semana</button>
-              <button 
-                onClick={() => setChartRange("1mo")} 
+              <button
+                onClick={() => setChartRange("1mo")}
                 className={`px-4 py-1.5 text-xs font-bold rounded-md transition cursor-pointer ${chartRange === "1mo" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
               >1 Mês</button>
             </div>
@@ -1671,14 +1690,14 @@ export default function Dashboard() {
                   <AreaChart data={marketChartData}>
                     <defs>
                       <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={selectedAssetChart.regularMarketChangePercent >= 0 ? "#10b981" : "#f43f5e"} stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor={selectedAssetChart.regularMarketChangePercent >= 0 ? "#10b981" : "#f43f5e"} stopOpacity={0}/>
+                        <stop offset="5%" stopColor={selectedAssetChart.regularMarketChangePercent >= 0 ? "#10b981" : "#f43f5e"} stopOpacity={0.3} />
+                        <stop offset="95%" stopColor={selectedAssetChart.regularMarketChangePercent >= 0 ? "#10b981" : "#f43f5e"} stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                     <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#64748b" }} dy={10} minTickGap={30} />
                     <YAxis domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#64748b" }} dx={-10} tickFormatter={(val) => `R$ ${val.toFixed(2)}`} />
-                    <Tooltip 
+                    <Tooltip
                       contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)', fontSize: '12px', fontWeight: 'bold' }}
                       formatter={(value: number) => [`R$ ${value.toFixed(2)}`, "Preço"]}
                       labelStyle={{ color: '#64748b', marginBottom: '4px' }}
@@ -1696,6 +1715,84 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Currency Chart Modal */}
+      {selectedCurrencyChart && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4" onClick={() => setSelectedCurrencyChart(null)}>
+          <div className="w-full max-w-3xl bg-white border border-slate-200 p-6 rounded-2xl relative shadow-xl text-slate-800 animate-in fade-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-lg bg-sky-50 flex items-center justify-center border border-sky-100 text-sky-600">
+                  <Database className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">{selectedCurrencyChart === "USD-BRL" ? "Dólar Americano" : "Euro"}</h3>
+                  <p className="text-xs text-slate-500">{selectedCurrencyChart}</p>
+                </div>
+              </div>
+              <button onClick={() => setSelectedCurrencyChart(null)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition cursor-pointer">
+                Fechar
+              </button>
+            </div>
+
+            <div className="flex gap-2 mb-6 bg-slate-100 p-1 rounded-lg w-max">
+              <button 
+                onClick={() => setCurrencyChartRange("1d")} 
+                className={`px-4 py-1.5 text-xs font-bold rounded-md transition cursor-pointer ${currencyChartRange === "1d" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+              >1 Dia</button>
+              <button 
+                onClick={() => setCurrencyChartRange("1w")} 
+                className={`px-4 py-1.5 text-xs font-bold rounded-md transition cursor-pointer ${currencyChartRange === "1w" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+              >1 Semana</button>
+              <button 
+                onClick={() => setCurrencyChartRange("1m")} 
+                className={`px-4 py-1.5 text-xs font-bold rounded-md transition cursor-pointer ${currencyChartRange === "1m" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+              >1 Mês</button>
+              <button 
+                onClick={() => setCurrencyChartRange("1y")} 
+                className={`px-4 py-1.5 text-xs font-bold rounded-md transition cursor-pointer ${currencyChartRange === "1y" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+              >1 Ano</button>
+            </div>
+
+            <div className="h-72 w-full">
+              {currencyChartLoading ? (
+                <div className="w-full h-full flex flex-col items-center justify-center">
+                  <Loader2 className="w-8 h-8 animate-spin text-sky-500 mb-2" />
+                  <p className="text-xs text-slate-500">Buscando histórico de câmbio...</p>
+                </div>
+              ) : currencyChartData.length > 0 ? (() => {
+                const isPositive = currencyChartData[currencyChartData.length - 1].bid >= currencyChartData[0].bid;
+                const color = isPositive ? "#10b981" : "#f43f5e";
+                
+                return (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={currencyChartData}>
+                      <defs>
+                        <linearGradient id="colorCurrencyPrice" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor={color} stopOpacity={0.3} />
+                          <stop offset="95%" stopColor={color} stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                      <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#64748b" }} dy={10} minTickGap={30} />
+                      <YAxis domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#64748b" }} dx={-10} tickFormatter={(val) => `R$ ${val.toFixed(2)}`} />
+                      <Tooltip
+                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)', fontSize: '12px', fontWeight: 'bold' }}
+                        formatter={(value: number) => [`R$ ${value.toFixed(4)}`, "Câmbio"]}
+                        labelStyle={{ color: '#64748b', marginBottom: '4px' }}
+                      />
+                      <Area type="monotone" dataKey="bid" stroke={color} strokeWidth={3} fillOpacity={1} fill="url(#colorCurrencyPrice)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                );
+              })() : (
+                <div className="w-full h-full flex flex-col items-center justify-center">
+                  <p className="text-slate-500 text-sm">Sem histórico disponível.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
