@@ -224,10 +224,37 @@ export default function Dashboard() {
       const fetchCurrencyChart = async () => {
         setCurrencyChartLoading(true);
         try {
-          const res = await fetch(`/api/rates/history?currency=${selectedCurrencyChart}&range=${currencyChartRange}`);
+          let url = "";
+          switch (currencyChartRange) {
+            case "1d":
+              url = `https://economia.awesomeapi.com.br/json/${selectedCurrencyChart}/100`;
+              break;
+            case "1w":
+              url = `https://economia.awesomeapi.com.br/json/daily/${selectedCurrencyChart}/7`;
+              break;
+            case "1m":
+              url = `https://economia.awesomeapi.com.br/json/daily/${selectedCurrencyChart}/30`;
+              break;
+            case "1y":
+              url = `https://economia.awesomeapi.com.br/json/daily/${selectedCurrencyChart}/360`;
+              break;
+            default:
+              url = `https://economia.awesomeapi.com.br/json/${selectedCurrencyChart}/100`;
+          }
+
+          const res = await fetch(url);
           if (res.ok) {
             const data = await res.json();
-            setCurrencyChartData(data);
+            
+            const reversedData = Array.isArray(data) ? [...data].reverse() : [];
+            const formatted = reversedData.map((d: any) => ({
+              date: currencyChartRange === "1d"
+                ? new Date(parseInt(d.timestamp, 10) * 1000).toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' })
+                : new Date(parseInt(d.timestamp, 10) * 1000).toLocaleDateString("pt-BR", { day: '2-digit', month: '2-digit' }),
+              bid: parseFloat(d.bid)
+            }));
+            
+            setCurrencyChartData(formatted);
           }
         } catch (e) {
           console.error(e);
@@ -532,12 +559,12 @@ export default function Dashboard() {
 
   const fetchRates = async () => {
     try {
-      const res = await fetch("/api/rates");
+      const res = await fetch("https://economia.awesomeapi.com.br/last/USD-BRL,EUR-BRL");
       const data = await res.json();
-      setUsdRate(data.USDBRL);
-      setEurRate(data.EURBRL);
+      setUsdRate(parseFloat(data.USDBRL.bid));
+      setEurRate(parseFloat(data.EURBRL.bid));
     } catch (e) {
-      console.error("Erro ao carregar taxas de câmbio", e);
+      console.error("Erro ao carregar taxas de câmbio da AwesomeAPI", e);
     }
   };
 
