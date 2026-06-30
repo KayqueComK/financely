@@ -22,6 +22,7 @@ model User {
   transactions  Transaction[]
   categories    Category[]
   accounts      Account[]
+  subscriptions Subscription[]
   isPremium     Boolean       @default(false)
 }
 
@@ -32,6 +33,7 @@ model Category {
   userId       String
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions Transaction[]
+  subscriptions Subscription[]
 }
 
 model Transaction {
@@ -63,4 +65,19 @@ model Account {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+}
+
+model Subscription {
+  id          String   @id @default(uuid())
+  description String
+  amount      Float
+  type        String   // "INCOME" or "EXPENSE"
+  startDate   DateTime
+  nextDueDate DateTime
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
 }

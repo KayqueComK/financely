@@ -14,6 +14,44 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const limit = searchParams.get("limit");
 
+    // Process due subscriptions (mensalidades/assinaturas)
+    const now = new Date();
+    const dueSubscriptions = await prisma.subscription.findMany({
+      where: {
+        userId,
+        active: true,
+        nextDueDate: {
+          lte: now
+        }
+      }
+    });
+
+    if (dueSubscriptions.length > 0) {
+      for (const sub of dueSubscriptions) {
+        let currentDueDate = new Date(sub.nextDueDate);
+        
+        while (currentDueDate <= now) {
+          await prisma.transaction.create({
+            data: {
+              description: sub.description,
+              amount: sub.amount,
+              type: sub.type,
+              date: new Date(currentDueDate), // copy date
+              userId: sub.userId,
+              categoryId: sub.categoryId,
+            }
+          });
+          
+          currentDueDate.setMonth(currentDueDate.getMonth() + 1);
+        }
+
+        await prisma.subscription.update({
+          where: { id: sub.id },
+          data: { nextDueDate: currentDueDate }
+        });
+      }
+    }
+
     const transactions = await prisma.transaction.findMany({
       where: { userId },
       include: {

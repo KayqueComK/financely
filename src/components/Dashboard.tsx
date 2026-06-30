@@ -246,7 +246,7 @@ export default function Dashboard() {
           const res = await fetch(url);
           if (res.ok) {
             const data = await res.json();
-            
+
             const reversedData = Array.isArray(data) ? [...data].reverse() : [];
             const formatted = reversedData.map((d: any) => ({
               date: currencyChartRange === "1d"
@@ -254,7 +254,7 @@ export default function Dashboard() {
                 : new Date(parseInt(d.timestamp, 10) * 1000).toLocaleDateString("pt-BR", { day: '2-digit', month: '2-digit' }),
               bid: parseFloat(d.bid)
             }));
-            
+
             setCurrencyChartData(formatted);
           }
         } catch (e) {
@@ -287,6 +287,7 @@ export default function Dashboard() {
   const [txType, setTxType] = useState("EXPENSE");
   const [txCategory, setTxCategory] = useState("");
   const [txDate, setTxDate] = useState(new Date().toISOString().split("T")[0]);
+  const [txIsRecurring, setTxIsRecurring] = useState(false);
 
   // Edit transaction states
   const [showEditTx, setShowEditTx] = useState(false);
@@ -548,9 +549,21 @@ export default function Dashboard() {
       ]);
       const txData = await txRes.json();
       const catData = await catRes.json();
-      setTransactions(txData);
-      setCategories(catData);
-      if (catData.length > 0) setTxCategory(catData[0].id);
+
+      if (Array.isArray(txData)) {
+        setTransactions(txData);
+      } else {
+        console.error("Failed to load transactions:", txData);
+        setTransactions([]);
+      }
+
+      if (Array.isArray(catData)) {
+        setCategories(catData);
+        if (catData.length > 0) setTxCategory(catData[0].id);
+      } else {
+        console.error("Failed to load categories:", catData);
+        setCategories([]);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -573,7 +586,8 @@ export default function Dashboard() {
     e.preventDefault();
     setActionLoading(true);
     try {
-      const res = await fetch("/api/transactions", {
+      const isSub = txIsRecurring;
+      const res = await fetch(isSub ? "/api/subscriptions" : "/api/transactions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -581,15 +595,21 @@ export default function Dashboard() {
           amount: parseFloat(txAmount),
           type: txType,
           date: txDate,
+          startDate: txDate, // API de assinatura usa startDate
           categoryId: txCategory
         })
       });
       if (res.ok) {
-        const newTx = await res.json();
-        setTransactions([newTx, ...transactions]);
+        if (isSub) {
+          await fetchData(); // Força recarregamento para disparar geração de transação
+        } else {
+          const newTx = await res.json();
+          setTransactions([newTx, ...transactions]);
+        }
         setTxDesc("");
         setTxAmount("");
         setShowAddTx(false);
+        setTxIsRecurring(false);
       }
     } catch (e) {
       console.error(e);
@@ -741,7 +761,7 @@ export default function Dashboard() {
     return (
       <div className="flex-1 flex flex-col items-center justify-center min-h-screen bg-slate-50">
         <Loader2 className="w-10 h-10 animate-spin text-sky-600 mb-4" />
-        <p className="text-slate-500 text-sm font-medium">Carregando dados do sistema ERP...</p>
+        <p className="text-slate-500 text-sm font-medium">Carregando dados do sistema...</p>
       </div>
     );
   }
@@ -769,7 +789,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <h2 className="text-lg font-bold tracking-tight text-white">Financely</h2>
-                  <span className="text-[10px] text-sky-400 font-semibold uppercase tracking-wider">Saas Gestão Financeira</span>
+                  <span className="text-[10px] text-sky-400 font-semibold uppercase tracking-wider">Gestão Financeira</span>
                 </div>
               </div>
               <button
@@ -1369,6 +1389,28 @@ export default function Dashboard() {
                 </div>
               </div>
 
+              <div className="flex flex-col gap-1 mt-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="isRecurring"
+                    className="w-4 h-4 text-sky-600 rounded border-slate-300 focus:ring-sky-500 cursor-pointer"
+                    checked={txIsRecurring}
+                    onChange={(e) => setTxIsRecurring(e.target.checked)}
+                  />
+                  <label htmlFor="isRecurring" className="text-sm font-bold text-slate-700 cursor-pointer select-none">
+                    É uma mensalidade / assinatura fixa?
+                  </label>
+                </div>
+                {txIsRecurring && (
+                  <div className="bg-sky-50 p-3 rounded-xl border border-sky-100 mt-2">
+                    <p className="text-xs text-sky-700 leading-relaxed">
+                      <span className="font-bold">✨ Mágica ativada:</span> O sistema vai registrar esse lançamento e <span className="underline">renovar automaticamente todo mês</span> na data selecionada acima. Você não precisará mais adicioná-la manualmente!
+                    </p>
+                  </div>
+                )}
+              </div>
+
               <div className="flex gap-3 mt-6">
                 <button
                   type="button"
@@ -1763,20 +1805,20 @@ export default function Dashboard() {
             </div>
 
             <div className="flex gap-2 mb-6 bg-slate-100 p-1 rounded-lg w-max">
-              <button 
-                onClick={() => setCurrencyChartRange("1d")} 
+              <button
+                onClick={() => setCurrencyChartRange("1d")}
                 className={`px-4 py-1.5 text-xs font-bold rounded-md transition cursor-pointer ${currencyChartRange === "1d" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
               >1 Dia</button>
-              <button 
-                onClick={() => setCurrencyChartRange("1w")} 
+              <button
+                onClick={() => setCurrencyChartRange("1w")}
                 className={`px-4 py-1.5 text-xs font-bold rounded-md transition cursor-pointer ${currencyChartRange === "1w" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
               >1 Semana</button>
-              <button 
-                onClick={() => setCurrencyChartRange("1m")} 
+              <button
+                onClick={() => setCurrencyChartRange("1m")}
                 className={`px-4 py-1.5 text-xs font-bold rounded-md transition cursor-pointer ${currencyChartRange === "1m" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
               >1 Mês</button>
-              <button 
-                onClick={() => setCurrencyChartRange("1y")} 
+              <button
+                onClick={() => setCurrencyChartRange("1y")}
                 className={`px-4 py-1.5 text-xs font-bold rounded-md transition cursor-pointer ${currencyChartRange === "1y" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
               >1 Ano</button>
             </div>
@@ -1790,7 +1832,7 @@ export default function Dashboard() {
               ) : currencyChartData.length > 0 ? (() => {
                 const isPositive = currencyChartData[currencyChartData.length - 1].bid >= currencyChartData[0].bid;
                 const color = isPositive ? "#10b981" : "#f43f5e";
-                
+
                 return (
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={currencyChartData}>
