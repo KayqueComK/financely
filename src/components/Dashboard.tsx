@@ -1389,7 +1389,7 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-1 mt-2">
+              <div className="flex flex-col gap-1 mt-2 select-none">
                 <div className="flex items-center gap-2">
                   <input
                     type="checkbox"
@@ -1399,13 +1399,13 @@ export default function Dashboard() {
                     onChange={(e) => setTxIsRecurring(e.target.checked)}
                   />
                   <label htmlFor="isRecurring" className="text-sm font-bold text-slate-700 cursor-pointer select-none">
-                    É uma mensalidade / assinatura fixa?
+                    É uma mensalidade?
                   </label>
                 </div>
                 {txIsRecurring && (
-                  <div className="bg-sky-50 p-3 rounded-xl border border-sky-100 mt-2">
+                  <div className="bg-sky-50 p-3 rounded-xl border border-sky-100 mt-2 select-none pointer-events-none">
                     <p className="text-xs text-sky-700 leading-relaxed">
-                      <span className="font-bold">✨ Mágica ativada:</span> O sistema vai registrar esse lançamento e <span className="underline">renovar automaticamente todo mês</span> na data selecionada acima. Você não precisará mais adicioná-la manualmente!
+                      <span className="font-bold"></span> O sistema vai registrar esse lançamento e <span className="underline">renovar automaticamente todo mês</span> na data selecionada acima. Você não precisará mais adicioná-la manualmente!
                     </p>
                   </div>
                 )}
@@ -1415,14 +1415,14 @@ export default function Dashboard() {
                 <button
                   type="button"
                   onClick={() => setShowAddTx(false)}
-                  className="flex-1 py-3 px-4 text-sm font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 transition cursor-pointer"
+                  className="flex-1 py-3 px-4 text-sm font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 transition cursor-pointer select-none"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="flex-1 py-3 px-4 flex items-center justify-center gap-2 text-sm font-semibold rounded-xl bg-sky-600 hover:bg-sky-500 text-white transition cursor-pointer"
+                  className="flex-1 py-3 px-4 flex items-center justify-center gap-2 text-sm font-semibold rounded-xl bg-sky-600 hover:bg-sky-500 text-white transition cursor-pointer select-none"
                 >
                   {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Gravar Lançamento"}
                 </button>
