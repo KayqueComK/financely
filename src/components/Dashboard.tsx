@@ -37,11 +37,10 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Cell,
-  Pie
+  ResponsiveContainer
 } from "recharts";
+import { PieChart } from "@/components/charts/pie-chart";
+import { PieSlice } from "@/components/charts/pie-slice";
 
 interface Category {
   id: string;
@@ -81,6 +80,8 @@ export default function Dashboard() {
   const [marketData, setMarketData] = useState<any[]>([]);
   const [marketLoading, setMarketLoading] = useState(false);
   const [watchlist, setWatchlist] = useState<string[]>([]);
+  const [hoveredSlice, setHoveredSlice] = useState<number | null>(null);
+  const [tooltipState, setTooltipState] = useState<{ x: number, y: number } | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem("financely_watchlist");
@@ -752,7 +753,7 @@ export default function Dashboard() {
     }, {});
 
   const pieData = Object.entries(expensesByCategory).map(([name, item]) => ({
-    name,
+    label: name,
     value: item.value,
     color: item.color
   }));
@@ -1007,33 +1008,52 @@ export default function Dashboard() {
               {/* Pie Chart */}
               <div className="erp-card p-6 rounded-xl flex flex-col justify-between">
                 <div>
-                  <div className="mb-4">
+                  <div className="mb-4 select-none pointer-events-none">
                     <h3 className="font-bold text-sm tracking-tight text-slate-800 uppercase mb-1">Centro de Custos / Categorias</h3>
                     <p className="text-xs text-slate-500">Distribuição percentual das despesas da organização.</p>
                   </div>
                   <div className="h-52 w-full flex items-center justify-center relative">
                     {pieData.length > 0 ? (
-                      <div className="w-full h-full relative flex items-center justify-center">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={pieData}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={60}
-                              outerRadius={80}
-                              paddingAngle={5}
-                              dataKey="value"
-                            >
-                              {pieData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} />
-                              ))}
-                            </Pie>
-                            <Tooltip
-                              contentStyle={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: "8px", zIndex: 100 }}
-                            />
-                          </PieChart>
-                        </ResponsiveContainer>
+                      <div 
+                        className="w-full h-full relative flex items-center justify-center"
+                        onMouseMove={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setTooltipState({
+                            x: e.clientX - rect.left,
+                            y: e.clientY - rect.top,
+                          });
+                        }}
+                        onMouseLeave={() => setTooltipState(null)}
+                      >
+                        <PieChart
+                          data={pieData}
+                          innerRadius={85}
+                          padAngle={0.05}
+                          cornerRadius={4}
+                          hoverOffset={10}
+                          startAngle={-90 * Math.PI / 180}
+                          endAngle={270 * Math.PI / 180}
+                          enterTransition={{ type: "tween", duration: 1.1, ease: [0.85, 0, 0.15, 1] }}
+                          enterStaggerScale={1.00}
+                          hoveredIndex={hoveredSlice}
+                          onHoverChange={setHoveredSlice}
+                        >
+                          {pieData.map((_, index) => (
+                            <PieSlice key={index} index={index} hoverEffect="translate" />
+                          ))}
+                        </PieChart>
+                        {tooltipState && hoveredSlice !== null && pieData[hoveredSlice] && (
+                          <div 
+                            className="absolute pointer-events-none bg-white border border-slate-200 shadow-sm rounded-lg px-3 py-2 z-50 flex flex-col items-center transition-opacity duration-150"
+                            style={{
+                              left: tooltipState.x + 15,
+                              top: tooltipState.y + 15,
+                            }}
+                          >
+                            <span className="font-bold text-slate-800 text-xs mb-1">{pieData[hoveredSlice].label}</span>
+                            <span className="text-slate-600 text-[10px] font-medium bg-slate-100 px-2 py-0.5 rounded-md">R$ {formatValue(pieData[hoveredSlice].value)}</span>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="h-full flex items-center justify-center text-xs text-slate-400">
@@ -1045,11 +1065,11 @@ export default function Dashboard() {
 
                 {/* Custom Legend at Bottom */}
                 {pieData.length > 0 && (
-                  <div className="mt-4 flex flex-wrap gap-2 justify-center text-[10px] font-bold text-slate-600 uppercase border-t border-slate-100 pt-3">
+                  <div className="mt-4 flex flex-wrap gap-2 justify-center text-[10px] font-bold text-slate-600 uppercase border-t border-slate-100 pt-3 select-none pointer-events-none">
                     {pieData.map((item, idx) => (
                       <div key={idx} className="flex items-center gap-1.5 bg-slate-50 border border-slate-200/65 px-2.5 py-1 rounded-lg">
                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
-                        <span>{item.name}: {formatValue(item.value)}</span>
+                        <span>{item.label}: {formatValue(item.value)}</span>
                       </div>
                     ))}
                   </div>
