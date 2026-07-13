@@ -1,7 +1,7 @@
 /* eslint-disable */
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { signOut, useSession } from "next-auth/react";
 import {
   Plus,
@@ -39,6 +39,7 @@ import {
   Tooltip,
   ResponsiveContainer
 } from "recharts";
+import { motion, AnimatePresence } from "motion/react";
 import { PieChart } from "@/components/charts/pie-chart";
 import { PieSlice } from "@/components/charts/pie-slice";
 
@@ -81,7 +82,7 @@ export default function Dashboard() {
   const [marketLoading, setMarketLoading] = useState(false);
   const [watchlist, setWatchlist] = useState<string[]>([]);
   const [hoveredSlice, setHoveredSlice] = useState<number | null>(null);
-  const [tooltipState, setTooltipState] = useState<{ x: number, y: number } | null>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem("financely_watchlist");
@@ -1017,13 +1018,12 @@ export default function Dashboard() {
                       <div 
                         className="w-full h-full relative flex items-center justify-center"
                         onMouseMove={(e) => {
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          setTooltipState({
-                            x: e.clientX - rect.left,
-                            y: e.clientY - rect.top,
-                          });
+                          if (tooltipRef.current) {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            tooltipRef.current.style.left = `${e.clientX - rect.left + 15}px`;
+                            tooltipRef.current.style.top = `${e.clientY - rect.top + 15}px`;
+                          }
                         }}
-                        onMouseLeave={() => setTooltipState(null)}
                       >
                         <PieChart
                           data={pieData}
@@ -1042,14 +1042,11 @@ export default function Dashboard() {
                             <PieSlice key={index} index={index} hoverEffect="translate" />
                           ))}
                         </PieChart>
-                        {tooltipState && hoveredSlice !== null && pieData[hoveredSlice] && (
+                        {hoveredSlice !== null && pieData[hoveredSlice] && (
                           <div 
+                            ref={tooltipRef}
                             className="absolute pointer-events-none bg-white border border-slate-200 shadow-sm rounded-lg px-3 py-2 z-50 flex flex-col items-center transition-opacity duration-150"
-                            style={{
-                              left: tooltipState.x + 15,
-                              top: tooltipState.y + 15,
-                            }}
-                          >
+                            style={{ left: 0, top: 0 }}>
                             <span className="font-bold text-slate-800 text-xs mb-1">{pieData[hoveredSlice].label}</span>
                             <span className="text-slate-600 text-[10px] font-medium bg-slate-100 px-2 py-0.5 rounded-md">R$ {formatValue(pieData[hoveredSlice].value)}</span>
                           </div>
@@ -1113,7 +1110,7 @@ export default function Dashboard() {
                       <th className="py-3 px-4 text-center rounded-r-lg">Ações</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <motion.tbody className="divide-y divide-slate-100" initial="hidden" animate="show" variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.05 } } }}>
                     {transactions.length > 0 ? (
                       transactions.map(tx => (
                         <tr key={tx.id} className="hover:bg-slate-50 transition">
@@ -1175,7 +1172,7 @@ export default function Dashboard() {
                         </td>
                       </tr>
                     )}
-                  </tbody>
+                  </motion.tbody>
                 </table>
               </div>
             </section>
