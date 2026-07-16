@@ -465,7 +465,7 @@ export default function Dashboard() {
         }
 
         // Draw transaction row
-        const dateStr = new Date(tx.date).toLocaleDateString("pt-BR");
+        const dateStr = tx.date.split("T")[0].split("-").reverse().join("/");
         const descStr = tx.description.length > 30 ? tx.description.substring(0, 28) + "..." : tx.description;
         const catStr = tx.category?.name || "Sem Categoria";
         const typeStr = tx.type === "INCOME" ? "Receita" : "Despesa";
@@ -737,7 +737,7 @@ export default function Dashboard() {
     .reverse()
     .slice(-10)
     .map(t => ({
-      date: new Date(t.date).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
+      date: t.date.split("T")[0].split("-").slice(1, 3).reverse().join("/"),
       valor: t.type === "INCOME" ? t.amount : -t.amount,
       desc: t.description
     }));
@@ -981,7 +981,7 @@ export default function Dashboard() {
                 <div className="h-64 w-full">
                   {chartData.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                         <defs>
                           <linearGradient id="colorValor" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor="#0284c7" stopOpacity={0.25} />
@@ -990,7 +990,7 @@ export default function Dashboard() {
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                         <XAxis dataKey="date" stroke="#64748b" fontSize={10} />
-                        <YAxis stroke="#64748b" fontSize={10} />
+                        <YAxis stroke="#64748b" fontSize={10} tickFormatter={(val) => val >= 1000 ? `${(val / 1000).toFixed(1)}k` : val} width={40} />
                         <Tooltip
                           contentStyle={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: "8px", color: "#334155" }}
                           labelStyle={{ color: "#64748b", fontWeight: "bold" }}
@@ -1027,7 +1027,7 @@ export default function Dashboard() {
                       >
                         <PieChart
                           data={pieData}
-                          innerRadius={85}
+                          innerRadius={55}
                           padAngle={0.05}
                           cornerRadius={4}
                           hoverOffset={10}
@@ -1125,7 +1125,7 @@ export default function Dashboard() {
                             </span>
                           </td>
                           <td className="py-4 px-4 text-xs text-slate-500">
-                            {new Date(tx.date).toLocaleDateString("pt-BR")}
+                            {tx.date.split("T")[0].split("-").reverse().join("/")}
                           </td>
                           <td className="py-4 px-4 text-xs font-bold">
                             {tx.type === "INCOME" ? (
@@ -1146,7 +1146,7 @@ export default function Dashboard() {
                                   setEditTxAmount(tx.amount.toString());
                                   setEditTxType(tx.type);
                                   setEditTxCategory(tx.category.id);
-                                  setEditTxDate(new Date(tx.date).toISOString().split("T")[0]);
+                                  setEditTxDate(tx.date.split("T")[0]);
                                   setShowEditTx(true);
                                 }}
                                 className="text-slate-400 hover:text-sky-600 p-1.5 rounded-lg hover:bg-sky-500/10 transition cursor-pointer"

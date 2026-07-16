@@ -95,3 +95,11 @@ body {
     @apply font-sans;
  }
 }
+
+* {
+  caret-color: transparent;
+}
+
+input, textarea, select {
+  caret-color: auto !important;
+}

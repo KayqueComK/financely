@@ -11,10 +11,30 @@ export async function GET() {
     }
 
     const userId = (session.user as any).id;
-    const categories = await prisma.category.findMany({
+    let categories = await prisma.category.findMany({
       where: { userId },
       orderBy: { name: "asc" },
     });
+
+    if (categories.length === 0) {
+      const defaultCategories = [
+        { name: "Salário", color: "#10b981", userId },
+        { name: "Alimentação", color: "#f59e0b", userId },
+        { name: "Diversão", color: "#8b5cf6", userId },
+        { name: "Transporte", color: "#3b82f6", userId },
+        { name: "Moradia", color: "#6366f1", userId },
+        { name: "Saúde", color: "#ec4899", userId },
+      ];
+
+      await prisma.category.createMany({
+        data: defaultCategories,
+      });
+
+      categories = await prisma.category.findMany({
+        where: { userId },
+        orderBy: { name: "asc" },
+      });
+    }
 
     return NextResponse.json(categories);
   } catch (error) {

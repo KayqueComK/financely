@@ -192,8 +192,9 @@ const PieChartCore = memo(function PieChartCore({
 
   // Calculate radii with padding based on hover offset to prevent clipping
   const padding = hoverOffset;
-  const outerRadius = center - padding;
-  const innerRadius = innerRadiusProp;
+  const outerRadius = Math.max(0, center - padding);
+  // Ensure innerRadius doesn't exceed outerRadius and maintains a minimum thickness (30%)
+  const innerRadius = Math.min(innerRadiusProp, Math.max(0, outerRadius * 0.7));
 
   // Calculate total value
   const totalValue = useMemo(
@@ -494,30 +495,32 @@ export function PieChart({
   // Otherwise use ParentSize for responsive sizing
   return (
     <div
-      className={cn("relative aspect-square w-full", className)}
+      className={cn("relative h-full w-full", className)}
       ref={containerRef}
     >
       <ParentSize debounceTime={10}>
         {({ width, height }) => (
-          <PieChartInner
-            containerRef={containerRef}
-            cornerRadius={cornerRadius}
-            data={data}
-            endAngle={endAngle}
-            enterStaggerScale={enterStaggerScale}
-            enterTransition={enterTransition}
-            geometryScrubbing={geometryScrubbing}
-            height={height}
-            hoveredIndexProp={hoveredIndex}
-            hoverOffset={hoverOffset}
-            innerRadius={innerRadius}
-            onHoverChange={onHoverChange}
-            padAngle={padAngle}
-            startAngle={startAngle}
-            width={width}
-          >
-            {children}
-          </PieChartInner>
+          <div className="flex w-full h-full items-center justify-center">
+            <PieChartInner
+              containerRef={containerRef}
+              cornerRadius={cornerRadius}
+              data={data}
+              endAngle={endAngle}
+              enterStaggerScale={enterStaggerScale}
+              enterTransition={enterTransition}
+              geometryScrubbing={geometryScrubbing}
+              height={height}
+              hoveredIndexProp={hoveredIndex}
+              hoverOffset={hoverOffset}
+              innerRadius={innerRadius}
+              onHoverChange={onHoverChange}
+              padAngle={padAngle}
+              startAngle={startAngle}
+              width={width}
+            >
+              {children}
+            </PieChartInner>
+          </div>
         )}
       </ParentSize>
     </div>
